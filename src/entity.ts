@@ -5,20 +5,26 @@ export const IS_PROXIED_SYMBOL = Symbol('Is Entity proxied by handlers');
 
 export interface IEntity {
   [key: string]: any,
+
   [ENGINE_SYMBOL]?: Engine
   [IS_PROXIED_SYMBOL]?: boolean
 }
 
 type PropKey = string | number | symbol;
 
+const IGNORED_SYMBOLS = [ENGINE_SYMBOL, IS_PROXIED_SYMBOL] as const;
+
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
-  set (entity: IEntity, prop: PropKey, value: any, receiver: IEntity): boolean {
-    const needUpdate = !(prop in entity) && !(typeof prop === 'symbol');
+  set (entity: IEntity, prop: PropKey, value: any): boolean {
+    // We should trigger update when new property added
+    const isIgnoredSymbol = typeof prop === 'symbol' && IGNORED_SYMBOLS.some(x => x === prop);
+    const needUpdate = !isIgnoredSymbol && !(prop in entity);
 
     Reflect.set(entity, prop, value);
 
     if (needUpdate) {
-      entity[ENGINE_SYMBOL]?.updateEntity(entity);
+      const engine = entity[ENGINE_SYMBOL];
+      engine?.setEntityForUpdate(entity);
     }
 
     return true;

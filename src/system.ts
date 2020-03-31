@@ -2,13 +2,17 @@ import { IEntity } from "./entity";
 import { Engine } from "./engine";
 import { logger, removeElementFromArray } from './auxiliary';
 
-type IEntityRequirements = Array<string> | { [key: string]: IEntityRequirements } | null;
-
+type IEntityRequirementPredicateFn = (entity: IEntity) => boolean;
+type IEntityRequirementPredicate = string | IEntityRequirementPredicateFn;
+type IEntityRequirementList = Array<IEntityRequirementPredicate>;
+type IEntityRequirements = IEntityRequirementList
+                         | { [key: string]: IEntityRequirementList }
+                         | null;
 
 export class System {
   public enabled: boolean = true;
+  private _engine!: Engine;
   protected entities: ({ [key: string]: IEntity[] } | IEntity[]) = [];
-  private engine!: Engine;
 
   /**
    * Defines list(s) of entities with required components.
@@ -52,25 +56,31 @@ export class System {
   }
 
   setEngine (engine: Engine) {
-    this.engine = engine;
+    this._engine = engine;
   }
 
   update (dt: number) {
   }
 
-  private _testFunctionCache: Array<[Array<string>, Function]> = [];
+  private _testFunctionCache: Array<[Array<IEntityRequirementPredicate>, Function]> = [];
 
-  getTestFunction (componentList: string[]) {
+  getTestFunction (componentList: IEntityRequirementList = []) {
     const cacheEntry = this._testFunctionCache.find(([array]) => array === componentList);
 
     if (cacheEntry) {
       return cacheEntry[1];
     }
 
+    const tests = componentList.map(predicate => {
+      if (typeof predicate === 'string') {
+        return (entity: IEntity) => predicate in entity;
+      } else if (typeof predicate === 'function') {
+        return predicate;
+      }
+    }).filter(x => !!x) as Array<IEntityRequirementPredicateFn>;
+
     const testFn = (entity: IEntity) => {
-      return componentList.every(componentName => {
-        return componentName in entity;
-      })
+      return tests.every(test => test(entity));
     };
 
     this._testFunctionCache.push([componentList, testFn]);
@@ -111,30 +121,7 @@ export class System {
     }
   };
 
-  checkEntity (entity: IEntity) {
-    const { requirements } = this;
-    if (requirements === null) {
-      return;
-    }
-
-    if (requirements instanceof Array) {
-      if (this.isEntityMeetsRequirements(entity, requirements)) {
-        this.addEntity(entity);
-      }
-    } else if (typeof requirements === 'object') {
-      for (const [collectionName, requirement] of Object.entries(requirements)) {
-        if (!(requirement instanceof Array)) {
-          logger.warn(`Wrong requirement "${collectionName}":`, requirement, 'in', this);
-          continue;
-        }
-        if (this.isEntityMeetsRequirements(entity, requirement)) {
-          this.addEntity(entity, collectionName);
-        }
-      }
-    }
-  }
-
-  isEntityMeetsRequirements (entity: IEntity, requirements: string[]) {
+  isEntityMeetsRequirements (entity: IEntity, requirements: IEntityRequirementList) {
     const testFunction = this.getTestFunction(requirements);
     return !!testFunction?.(entity);
   }
@@ -152,10 +139,10 @@ export class System {
     }
   }
 
-  getEntities <T extends IEntity> (collectionName?: string): Array<T> {
-    if (!this.requirements && this.engine) {
+  getEntities<T extends IEntity> (collectionName?: string): Array<T> {
+    if (!this.requirements && this._engine) {
       // @ts-ignore
-      return this.engine.entities;
+      return this._engine.entities;
     }
     if (collectionName) {
       // @ts-ignore
@@ -164,11 +151,12 @@ export class System {
     // @ts-ignore
     return this.entities;
   }
+
   // getEntity (collectionName?: string): IEntity;
-  getEntity <T extends IEntity = IEntity> (collectionName?: string): T {
-    if (!this.requirements && this.engine) {
-    // @ts-ignore
-      return this.engine.entities[0];
+  getEntity<T extends IEntity = IEntity> (collectionName?: string): T {
+    if (!this.requirements && this._engine) {
+      // @ts-ignore
+      return this._engine.entities[0];
     }
     if (collectionName) {
       // @ts-ignore

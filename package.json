@@ -1,11 +1,12 @@
 {
   "name": "eaciest",
+  "license": "MIT",
   "version": "0.0.1",
   "description": "JavaScript ECS implementation",
-  "main": "lib/index.js",
+  "main": "dist/lib/index.js",
   "keywords": [ "ecs" ],
   "scripts": {
-    "dev": "",
+    "dev": "tsc --watch",
     "build": "tsc",
     "test": "jest"
   },
@@ -17,19 +18,18 @@
       "ts",
       "js"
     ],
-    "testRegex": "^.+\\.spec\\.ts$"
+    "testRegex": "^.+\\.spec\\.[jt]s$"
   },
   "author": "Vadim Samarin",
-  "license": "MIT",
   "dependencies": {
     "typescript": "^3.8.3"
-  },
-  "directories": {
-    "test": "test"
   },
   "devDependencies": {
     "@types/jest": "^25.1.4",
     "jest": "^25.2.4",
     "ts-jest": "^25.3.0"
+  },
+  "directories": {
+    "test": "test"
   }
 }
