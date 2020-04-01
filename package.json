@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "description": "JavaScript ECS implementation",
   "main": "dist/lib/index.js",
+  "types": "dist/types/index.d.ts",
   "keywords": [ "ecs" ],
   "scripts": {
     "dev": "tsc --watch",
@@ -18,7 +19,10 @@
       "ts",
       "js"
     ],
-    "testRegex": "^.+\\.spec\\.[jt]s$"
+    "testRegex": "^.+\\.spec\\.[jt]s$",
+    "testPathIgnorePatterns": [
+      "dist/lib"
+    ]
   },
   "author": "Vadim Samarin",
   "dependencies": {

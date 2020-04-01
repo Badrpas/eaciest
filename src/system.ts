@@ -59,8 +59,7 @@ export class System {
     this._engine = engine;
   }
 
-  update (dt: number) {
-  }
+  update (dt: number) {}
 
   private _testFunctionCache: Array<[Array<IEntityRequirementPredicate>, Function]> = [];
 
@@ -89,16 +88,16 @@ export class System {
   }
 
   /**
-   * Updates entity inside the system
+   * Checks entity for eligibility for the system
    * @param entity
    */
-  updateEntity = (entity: IEntity) => {
+  refreshEntity = (entity: IEntity): void => {
     const { requirements } = this;
     if (requirements === null) {
       return;
     }
 
-    if (requirements instanceof Array) {
+    if (requirements instanceof Array) { // Single collection
       if (this.isEntityMeetsRequirements(entity, requirements)) {
         if (this.entities instanceof Array && !this.entities.includes(entity)) {
           this.addEntity(entity);
@@ -106,18 +105,21 @@ export class System {
       } else {
         this.removeEntity(entity);
       }
-    } else if (typeof requirements === 'object') {
+    } else if (typeof requirements === 'object') { // Set of collections
       for (const [collectionName, requirement] of Object.entries(requirements)) {
         if (!(requirement instanceof Array)) {
           logger.warn(`Wrong requirement "${collectionName}":`, requirement, 'in', this);
           continue;
         }
+
         if (this.isEntityMeetsRequirements(entity, requirement)) {
           this.addEntity(entity, collectionName);
         } else {
           this.removeEntity(entity, collectionName);
         }
       }
+    } else {
+      throw new Error(`Incorrect requirements type. Expected Array or Object got ${typeof requirements}`);
     }
   };
 
@@ -144,26 +146,24 @@ export class System {
       // @ts-ignore
       return this._engine.entities;
     }
+
+    const isSingleCollection = this.requirements instanceof Array;
     if (collectionName) {
-      // @ts-ignore
-      return this.entities[collectionName];
+      if (!isSingleCollection) {
+        return (this.entities as {[key: string]: Array<T>})[collectionName];
+      }
+
+      throw new Error(`System has a single collection.`);
     }
-    // @ts-ignore
-    return this.entities;
+
+    return this.entities as Array<T>;
   }
 
-  // getEntity (collectionName?: string): IEntity;
-  getEntity<T extends IEntity = IEntity> (collectionName?: string): T {
-    if (!this.requirements && this._engine) {
-      // @ts-ignore
-      return this._engine.entities[0];
+  getEntity <T extends IEntity> (collectionName?: string): T | void {
+    const entities = this.getEntities(collectionName);
+    if (entities) {
+      return entities[0] as T;
     }
-    if (collectionName) {
-      // @ts-ignore
-      return this.entities[collectionName][0];
-    }
-    // @ts-ignore
-    return this.entities[0] as T;
   }
 
   getAllEntityCollections (): Array<Array<IEntity>> {
@@ -174,9 +174,9 @@ export class System {
     }
   }
 
-  removeEntity (entity: IEntity, collectionName?: string) {
+  removeEntity (entity: IEntity, collectionName?: string): void {
     if (collectionName) {
-
+      removeElementFromArray(this.getEntities(collectionName), entity);
       return;
     }
     this.getAllEntityCollections().forEach(collection => {

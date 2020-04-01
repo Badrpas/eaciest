@@ -2,12 +2,12 @@ import { System } from "./system";
 import { ENGINE_SYMBOL, IEntity, getProxiedEntity } from "./entity";
 import { removeElementFromArray } from './auxiliary';
 
-interface IOptions {
-  silentUpdates?: boolean
+interface IEngineOptions {
+  immediateEntityRefresh?: boolean
 }
 
 export class Engine {
-  options: Readonly<IOptions>;
+  options: Readonly<IEngineOptions>;
   private _systems: System[] = [];
 
   private _entities: Array<IEntity> = [];
@@ -18,19 +18,18 @@ export class Engine {
 
   private _entitiesToUpdate: Set<IEntity> = new Set<IEntity>();
 
-  constructor (options: IOptions = {}) {
+  constructor (options: IEngineOptions = {}) {
     this.options = {
-      silentUpdates: true,
+      immediateEntityRefresh: true,
       ...options
     } as const;
-
   }
 
   update = (dt: number) => {
     this._dt = dt;
 
-    if (!this.options.silentUpdates) {
-      this.handleUpdatedEntities();
+    if (!this.options.immediateEntityRefresh) {
+      this.handleChangedEntities();
     }
 
     this._systems.forEach(system => {
@@ -40,19 +39,6 @@ export class Engine {
     });
   };
 
-  setEntityForUpdate (entity: IEntity) {
-    if (this.options.silentUpdates) {
-      this.updateEntity(entity);
-    } else {
-      this._entitiesToUpdate.add(entity);
-    }
-  }
-
-  handleUpdatedEntities () {
-    this._entitiesToUpdate.forEach(this.updateEntity);
-    this._entitiesToUpdate.clear();
-  }
-
   add (obj: IEntity | System = {}): IEntity | System {
     if (obj instanceof System) {
       return this.addSystem(obj);
@@ -61,12 +47,16 @@ export class Engine {
     }
   }
 
+  instantiateSystem <T extends System>(SystemClass: new (...args: any[]) => T, ...args: any[]): System {
+    return this.addSystem(new SystemClass(...args));
+  }
+
   addSystem<T extends System> (system: T): System {
     system.setEngine(this);
     system.initEntities();
     this._systems.push(system);
 
-    this._entities.forEach(system.updateEntity);
+    this._entities.forEach(system.refreshEntity);
 
     return system;
   }
@@ -77,13 +67,26 @@ export class Engine {
 
     this._entities.push(entity);
 
-    this.setEntityForUpdate(entity);
+    this.markEntityChanged(entity);
 
     return entity;
   }
 
-  updateEntity = (entity: IEntity) => {
-    this._systems.forEach(system => system.updateEntity(entity));
+  markEntityChanged (entity: IEntity) {
+    if (this.options.immediateEntityRefresh) {
+      this.refreshEntity(entity);
+    } else {
+      this._entitiesToUpdate.add(entity);
+    }
+  }
+
+  handleChangedEntities () {
+    this._entitiesToUpdate.forEach(this.refreshEntity);
+  }
+
+  refreshEntity = (entity: IEntity) => {
+    this._systems.forEach(system => system.refreshEntity(entity));
+    this._entitiesToUpdate.delete(entity);
   };
 
   removeEntity (entity: IEntity) {

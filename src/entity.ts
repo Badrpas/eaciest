@@ -24,7 +24,7 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
 
     if (needUpdate) {
       const engine = entity[ENGINE_SYMBOL];
-      engine?.setEntityForUpdate(entity);
+      engine?.markEntityChanged(entity);
     }
 
     return true;
@@ -33,7 +33,7 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
   deleteProperty (entity: IEntity, prop: PropKey): boolean {
     // @ts-ignore
     delete entity[prop];
-    entity[ENGINE_SYMBOL]?.updateEntity(entity);
+    entity[ENGINE_SYMBOL]?.refreshEntity(entity);
     return true;
   }
 };
