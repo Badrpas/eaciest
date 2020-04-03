@@ -1,18 +1,20 @@
 import { Engine } from './engine';
 
-export const ENGINE_SYMBOL = Symbol('Engine (World)');
-export const IS_PROXIED_SYMBOL = Symbol('Is Entity proxied by handlers');
+export const ENGINE = Symbol('Engine (World)');
+export const IS_PROXIED = Symbol('Is Entity proxied by handlers');
 
-export interface IEntity {
-  [key: string]: any,
+export interface IEntityProjection {
+  [key: string]: any
+}
 
-  [ENGINE_SYMBOL]?: Engine
-  [IS_PROXIED_SYMBOL]?: boolean
+export interface IEntity extends IEntityProjection {
+  [ENGINE]?: Engine
+  [IS_PROXIED]: boolean
 }
 
 type PropKey = string | number | symbol;
 
-const IGNORED_SYMBOLS = [ENGINE_SYMBOL, IS_PROXIED_SYMBOL] as const;
+const IGNORED_SYMBOLS = [ENGINE, IS_PROXIED] as const;
 
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
   set (entity: IEntity, prop: PropKey, value: any): boolean {
@@ -23,8 +25,8 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
     Reflect.set(entity, prop, value);
 
     if (needUpdate) {
-      const engine = entity[ENGINE_SYMBOL];
-      engine?.markEntityChanged(entity);
+      const engine = entity[ENGINE];
+      engine?._markEntityChanged(entity);
     }
 
     return true;
@@ -33,18 +35,25 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
   deleteProperty (entity: IEntity, prop: PropKey): boolean {
     // @ts-ignore
     delete entity[prop];
-    entity[ENGINE_SYMBOL]?.refreshEntity(entity);
+    entity[ENGINE]?.refreshEntity(entity);
     return true;
   }
 };
 
-export const getProxiedEntity = (entity: IEntity): IEntity => {
-  if (entity[IS_PROXIED_SYMBOL]) {
-    return entity;
+export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
+  if (isEntity(candidate)) {
+    return candidate;
   }
 
-  return Object.assign(new Proxy(entity, EntityProxyHandler), {
-    [IS_PROXIED_SYMBOL]: true
-  });
+  const entity = { ...candidate, [IS_PROXIED]: true };
+
+  return new Proxy(entity, EntityProxyHandler);
 };
 
+export const isEntity = (entity?: IEntity | IEntityProjection ): entity is IEntity => {
+  if (!entity) {
+    return false;
+  }
+
+  return IS_PROXIED in entity;
+};

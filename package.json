@@ -9,20 +9,8 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
-    "test": "jest"
-  },
-  "jest": {
-    "transform": {
-      "^.+\\.ts$": "ts-jest"
-    },
-    "moduleFileExtensions": [
-      "ts",
-      "js"
-    ],
-    "testRegex": "^.+\\.spec\\.[jt]s$",
-    "testPathIgnorePatterns": [
-      "dist/lib"
-    ]
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "author": "Vadim Samarin",
   "dependencies": {

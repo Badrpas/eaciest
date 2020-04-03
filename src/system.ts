@@ -2,17 +2,31 @@ import { IEntity } from "./entity";
 import { Engine } from "./engine";
 import { logger, removeElementFromArray } from './auxiliary';
 
-type IEntityRequirementPredicateFn = (entity: IEntity) => boolean;
-type IEntityRequirementPredicate = string | IEntityRequirementPredicateFn;
-type IEntityRequirementList = Array<IEntityRequirementPredicate>;
-type IEntityRequirements = IEntityRequirementList
-                         | { [key: string]: IEntityRequirementList }
+type TEntityPredicate = (entity: IEntity) => boolean;
+
+type TEntityRequirementPredicate = TEntityPredicate;
+type TEntityRequirementConstraint = string | TEntityRequirementPredicate;
+type TEntityRequirementList = Array<TEntityRequirementConstraint>;
+
+type TEntityRequirements = TEntityRequirementList
+                         | { [key: string]: TEntityRequirementList }
                          | null;
+
+const isEntityRequirementList = (requirements: TEntityRequirements)
+  : requirements is TEntityRequirementList => {
+  return requirements instanceof Array;
+};
+
+export type TSystemUpdateMethod = (dt?: number) => void;
+const dummyUpdateMethod: TSystemUpdateMethod = (dt?: number) => {};
+
+type TEntitiesList = IEntity[];
+type TEntitiesListMap = { [key: string]: TEntitiesList };
+type TEntities = TEntitiesListMap | TEntitiesList;
 
 export class System {
   public enabled: boolean = true;
   private _engine!: Engine;
-  protected entities: ({ [key: string]: IEntity[] } | IEntity[]) = [];
 
   /**
    * Defines list(s) of entities with required components.
@@ -32,13 +46,21 @@ export class System {
    *   entityList2: [...]
    * }
    */
-  requirements: IEntityRequirements = null;
+  requirements: TEntityRequirements = null;
+  // TODO add requirements change handler
+
+  protected entities: TEntities = [];
+
   private _entitiesInitialized: boolean = false;
+
+  initialize () {
+    this._initEntities();
+  }
 
   /**
    * Called from `Engine.prototype.addSystem` method
    */
-  initEntities () {
+  private _initEntities () {
     if (this._entitiesInitialized) {
       return;
     }
@@ -47,6 +69,7 @@ export class System {
     if (this.requirements === null) {
       return;
     }
+
     if (!(this.requirements instanceof Array)) {
       this.entities = {};
       for (const key of Object.keys(this.requirements)) {
@@ -59,11 +82,11 @@ export class System {
     this._engine = engine;
   }
 
-  update (dt: number) {}
+  update: TSystemUpdateMethod = dummyUpdateMethod;
 
-  private _testFunctionCache: Array<[Array<IEntityRequirementPredicate>, Function]> = [];
+  private _testFunctionCache: Array<[Array<TEntityRequirementConstraint>, TEntityPredicate]> = [];
 
-  getTestFunction (componentList: IEntityRequirementList = []) {
+  getTestFunction (componentList: TEntityRequirementList = []): TEntityPredicate {
     const cacheEntry = this._testFunctionCache.find(([array]) => array === componentList);
 
     if (cacheEntry) {
@@ -76,9 +99,9 @@ export class System {
       } else if (typeof predicate === 'function') {
         return predicate;
       }
-    }).filter(x => !!x) as Array<IEntityRequirementPredicateFn>;
+    }).filter((x): x is TEntityRequirementPredicate => !!x);
 
-    const testFn = (entity: IEntity) => {
+    const testFn: TEntityPredicate = (entity: IEntity) => {
       return tests.every(test => test(entity));
     };
 
@@ -123,34 +146,37 @@ export class System {
     }
   };
 
-  isEntityMeetsRequirements (entity: IEntity, requirements: IEntityRequirementList) {
+  isEntityMeetsRequirements (entity: IEntity, requirements: TEntityRequirementList) {
     const testFunction = this.getTestFunction(requirements);
-    return !!testFunction?.(entity);
+    return testFunction?.(entity);
+  }
+
+  private static _entitiesIsListMap (requirements: TEntityRequirements, entities: TEntities)
+    : entities is TEntitiesListMap {
+    return !(requirements instanceof Array);
   }
 
   addEntity (entity: IEntity, collectionName: string | null = null) {
-    if (!(this.requirements instanceof Array)) {
-      if (collectionName) {
-        // @ts-ignore
+    if (System._entitiesIsListMap(this.requirements, this.entities)) {
+      if (typeof collectionName === 'string') {
         this.entities[collectionName].push(entity);
+      } else {
+        throw new Error('Collection name is not specified.');
       }
     } else {
-      if (this.entities instanceof Array) {
-        this.entities.push(entity);
-      }
+      this.entities.push(entity);
     }
   }
 
-  getEntities<T extends IEntity> (collectionName?: string): Array<T> {
+  // TODO Should it return whole map if no collectionName provided?
+  getEntities<T extends IEntity = IEntity> (collectionName?: string): Array<T> {
     if (!this.requirements && this._engine) {
-      // @ts-ignore
-      return this._engine.entities;
+      return this._engine.entities as Array<T>;
     }
 
-    const isSingleCollection = this.requirements instanceof Array;
-    if (collectionName) {
-      if (!isSingleCollection) {
-        return (this.entities as {[key: string]: Array<T>})[collectionName];
+    if (typeof collectionName === 'string') {
+      if (System._entitiesIsListMap(this.requirements, this.entities)) {
+        return this.entities[collectionName] as Array<T>;
       }
 
       throw new Error(`System has a single collection.`);
@@ -160,15 +186,18 @@ export class System {
   }
 
   getEntity <T extends IEntity> (collectionName?: string): T | void {
-    const entities = this.getEntities(collectionName);
+    const entities = this.getEntities<T>(collectionName);
     if (entities) {
-      return entities[0] as T;
+      return entities[0];
     }
   }
 
+  /**
+   * Used to iterate through all collections
+   */
   getAllEntityCollections (): Array<Array<IEntity>> {
     if (this.entities instanceof Array) {
-      return [this.entities];
+      return [this.entities]; // ?
     } else {
       return Object.values(this.entities);
     }
@@ -179,6 +208,7 @@ export class System {
       removeElementFromArray(this.getEntities(collectionName), entity);
       return;
     }
+
     this.getAllEntityCollections().forEach(collection => {
       removeElementFromArray(collection, entity);
     });
@@ -186,3 +216,24 @@ export class System {
 
 }
 
+export const isSystem = (system: any) : system is System => {
+  return system instanceof System;
+};
+
+// TODO move out to file
+/**
+ * Used for simplified handler declaration via engine.add()
+ */
+export class SimplifiedSystem extends System {
+  private _updateHandler: TSystemUpdateMethod = dummyUpdateMethod;
+
+  constructor (update: TSystemUpdateMethod, requirements: TEntityRequirements = null) {
+    super();
+    this._updateHandler = update;
+    this.requirements = requirements;
+  }
+
+  update = (dt?: number) => {
+    this._updateHandler(dt);
+  }
+}

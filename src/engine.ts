@@ -1,17 +1,21 @@
-import { System } from "./system";
-import { ENGINE_SYMBOL, IEntity, getProxiedEntity } from "./entity";
+import { SimplifiedSystem, System, TSystemUpdateMethod } from "./system";
+import { ENGINE, IEntity, getEntity, IEntityProjection, isEntity } from "./entity";
 import { removeElementFromArray } from './auxiliary';
 
 interface IEngineOptions {
-  immediateEntityRefresh?: boolean
+  lazyEntityRefresh?: boolean
 }
+
+type TSystemConstructor = new (...args: any[]) => System;
+type EntityOrSystem = IEntityProjection | IEntity | System | TSystemConstructor | TSystemUpdateMethod;
+
 
 export class Engine {
   options: Readonly<IEngineOptions>;
   private _systems: System[] = [];
 
-  private _entities: Array<IEntity> = [];
-  get entities (): Array<IEntity> { return this._entities; }
+  private _entitiesStore: Array<IEntity> = []; // TODO migrate to Set
+  get entities (): Array<IEntity> { return this._entitiesStore; }
 
   private _dt: number = 0;
   get dt (): number { return this._dt; }
@@ -20,7 +24,7 @@ export class Engine {
 
   constructor (options: IEngineOptions = {}) {
     this.options = {
-      immediateEntityRefresh: true,
+      lazyEntityRefresh: true,
       ...options
     } as const;
   }
@@ -28,7 +32,7 @@ export class Engine {
   update = (dt: number) => {
     this._dt = dt;
 
-    if (!this.options.immediateEntityRefresh) {
+    if (!this.options.lazyEntityRefresh) {
       this.handleChangedEntities();
     }
 
@@ -39,44 +43,63 @@ export class Engine {
     });
   };
 
-  add (obj: IEntity | System = {}): IEntity | System {
+  add (obj: EntityOrSystem = {}, ...args: any[]): IEntity | System {
     if (obj instanceof System) {
       return this.addSystem(obj);
+    } else if (typeof obj === 'function') {
+      if (obj.prototype instanceof System) { // is child of System class
+        const system = this.instantiateSystem<System>(obj as TSystemConstructor, ...args);
+        return this.addSystem(system);
+      } else { // handler function
+        const system: System = new SimplifiedSystem(obj as TSystemUpdateMethod, ...args);
+
+        return this.addSystem(system);
+      }
     } else {
       return this.addEntity(obj);
     }
   }
 
+  /**
+   * Alias for new SystemClass(...args)
+   */
   instantiateSystem <T extends System>(SystemClass: new (...args: any[]) => T, ...args: any[]): System {
     return this.addSystem(new SystemClass(...args));
   }
 
   addSystem<T extends System> (system: T): System {
     system.setEngine(this);
-    system.initEntities();
+    system.initialize();
+
     this._systems.push(system);
 
-    this._entities.forEach(system.refreshEntity);
+    this._entitiesStore.forEach(system.refreshEntity);
 
     return system;
   }
 
-  addEntity (entity: IEntity = {}): IEntity {
-    entity[ENGINE_SYMBOL] = this;
-    entity = getProxiedEntity(entity);
+  addEntity (candidate?: IEntity | IEntityProjection | null): IEntity {
+    if (!candidate) {
+      candidate = {};
+    }
 
-    this._entities.push(entity);
+    const entity: IEntity = getEntity(candidate);
 
-    this.markEntityChanged(entity);
+    entity[ENGINE] = this;
+
+    // TODO add lazy check?
+    this._entitiesStore.push(entity);
+
+    this._markEntityChanged(entity);
 
     return entity;
   }
 
-  markEntityChanged (entity: IEntity) {
-    if (this.options.immediateEntityRefresh) {
-      this.refreshEntity(entity);
-    } else {
+  _markEntityChanged (entity: IEntity) {
+    if (this.options.lazyEntityRefresh) {
       this._entitiesToUpdate.add(entity);
+    } else {
+      this.refreshEntity(entity);
     }
   }
 
@@ -90,7 +113,8 @@ export class Engine {
   };
 
   removeEntity (entity: IEntity) {
-    removeElementFromArray(this._entities, entity);
+    removeElementFromArray(this._entitiesStore, entity);
+
     this._systems.forEach(system => {
       system.removeEntity(entity);
     });

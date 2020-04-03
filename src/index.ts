@@ -1,3 +1,3 @@
 export * from './engine';
-export * from './entity';
 export * from './system';
+export * from './entity';
