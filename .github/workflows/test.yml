@@ -1,0 +1,19 @@
+name: Tests
+
+on: [push]
+
+jobs:
+  CI:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - name: Install
+        run: npm i
+      - name: Run Tests
+        run: npm run test -- --coverage
+      - name: Code Coverage
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
