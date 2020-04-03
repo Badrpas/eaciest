@@ -236,11 +236,11 @@ describe(`refreshEntity()`, () => {
     engine = new Engine({ lazyEntityRefresh: true });
 
     const entity = engine.addEntity(); // add new entity to refresh queue
-    const queueSize = (engine as any)._entitiesToUpdate.size;
+    const queueSize = (engine as any)._entitiesRefreshQueue.size;
 
     engine.refreshEntity(entity);
 
-    expect((engine as any)._entitiesToUpdate.size).not.toBe(queueSize);
+    expect((engine as any)._entitiesRefreshQueue.size).not.toBe(queueSize);
   });
 });
 
@@ -265,5 +265,55 @@ describe(`removeEntity`, () => {
 
     engine.removeEntity(entity);
     expect((system as any).entities.length).toBe(0);
+  });
+});
+
+describe(`update()`, () => {
+
+  it(`should run update for all enabled systems`, () => {
+    class MockSystem extends System {
+      update = jest.fn();
+    }
+
+    const system1 = engine.add(MockSystem) as System;
+    system1.enabled = false;
+    const system2 = engine.add(MockSystem) as System;
+
+    engine.update(123);
+
+    expect(system1.update).not.toHaveBeenCalled();
+    expect(system2.update).toHaveBeenCalled();
+  });
+
+  it(`should process refresh queue (lazyEntityRefresh === false)`, () => {
+    engine = new Engine({ lazyEntityRefresh: false });
+    engine.handleChangedEntities = jest.fn();
+
+    engine.update(123);
+
+    expect(engine.handleChangedEntities).toHaveBeenCalled();
+  });
+
+
+  it(`should process refresh queue (lazyEntityRefresh === true)`, () => {
+    engine = new Engine({ lazyEntityRefresh: true });
+    engine.handleChangedEntities = jest.fn();
+
+    engine.update(123);
+
+    expect(engine.handleChangedEntities).not.toHaveBeenCalled();
+  });
+
+});
+
+describe(`handleChangedEntities()`, () => {
+  it(`should process refresh queue`, () => {
+    expect((engine as any)._entitiesRefreshQueue.size).toBe(0);
+
+    engine.add();
+    expect((engine as any)._entitiesRefreshQueue.size).toBe(1);
+
+    engine.handleChangedEntities();
+    expect((engine as any)._entitiesRefreshQueue.size).toBe(0);
   });
 });

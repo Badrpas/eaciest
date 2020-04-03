@@ -20,7 +20,7 @@ export class Engine {
   private _dt: number = 0;
   get dt (): number { return this._dt; }
 
-  private _entitiesToUpdate: Set<IEntity> = new Set<IEntity>();
+  private _entitiesRefreshQueue: Set<IEntity> = new Set<IEntity>();
 
   constructor (options: IEngineOptions = {}) {
     this.options = {
@@ -32,6 +32,7 @@ export class Engine {
   update = (dt: number) => {
     this._dt = dt;
 
+    // Maybe it should always be called?
     if (!this.options.lazyEntityRefresh) {
       this.handleChangedEntities();
     }
@@ -48,9 +49,12 @@ export class Engine {
       return this.addSystem(obj);
     } else if (typeof obj === 'function') {
       if (obj.prototype instanceof System) { // is child of System class
+        // TODO move to method
         const system = this.instantiateSystem<System>(obj as TSystemConstructor, ...args);
+
         return this.addSystem(system);
       } else { // handler function
+        // TODO move to method
         const system: System = new SimplifiedSystem(obj as TSystemUpdateMethod, ...args);
 
         return this.addSystem(system);
@@ -97,19 +101,19 @@ export class Engine {
 
   _markEntityChanged (entity: IEntity) {
     if (this.options.lazyEntityRefresh) {
-      this._entitiesToUpdate.add(entity);
+      this._entitiesRefreshQueue.add(entity);
     } else {
       this.refreshEntity(entity);
     }
   }
 
   handleChangedEntities () {
-    this._entitiesToUpdate.forEach(this.refreshEntity);
+    this._entitiesRefreshQueue.forEach(this.refreshEntity);
   }
 
   refreshEntity = (entity: IEntity) => {
     this._systems.forEach(system => system.refreshEntity(entity));
-    this._entitiesToUpdate.delete(entity);
+    this._entitiesRefreshQueue.delete(entity);
   };
 
   removeEntity (entity: IEntity) {
