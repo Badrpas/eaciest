@@ -1,4 +1,4 @@
 # Eaciest `ECSt`
 ---
-JavaScript ECS implementation.
+TypesScript ECS implementation.
 
