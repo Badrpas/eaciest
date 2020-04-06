@@ -14,8 +14,8 @@ export class Engine {
   options: Readonly<IEngineOptions>;
   private _systems: System[] = [];
 
-  private _entitiesStore: Array<IEntity> = []; // TODO migrate to Set
-  get entities (): Array<IEntity> { return this._entitiesStore; }
+  private _entitiesStore: Set<IEntity> = new Set<IEntity>(); // TODO migrate to Set
+  get entities (): Set<IEntity> { return this._entitiesStore; }
 
   private _dt: number = 0;
   get dt (): number { return this._dt; }
@@ -92,7 +92,7 @@ export class Engine {
     entity[ENGINE] = this;
 
     // TODO add lazy check?
-    this._entitiesStore.push(entity);
+    this._entitiesStore.add(entity);
 
     this._markEntityChanged(entity);
 
@@ -117,7 +117,7 @@ export class Engine {
   };
 
   removeEntity (entity: IEntity) {
-    removeElementFromArray(this._entitiesStore, entity);
+    this._entitiesStore.delete(entity);
 
     this._systems.forEach(system => {
       system.removeEntity(entity);

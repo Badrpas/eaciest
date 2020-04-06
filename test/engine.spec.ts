@@ -154,7 +154,7 @@ describe(`addEntity()`, () => {
   it(`should populate entities list`, () => {
     const entity = engine.addEntity();
 
-    expect(engine.entities.includes(entity)).toBe(true);
+    expect(engine.entities.has(entity)).toBe(true);
   });
 
   it(`should set entity for systems refresh queue`, () => {
@@ -247,24 +247,24 @@ describe(`refreshEntity()`, () => {
 describe(`removeEntity`, () => {
   it(`should remove element from store`, () => {
     const entity = engine.add({ component: true }) as IEntity;
-    expect((engine as any)._entitiesStore.length).toBe(1);
+    expect((engine as any)._entitiesStore.size).toBe(1);
 
     engine.removeEntity(entity);
 
-    expect((engine as any)._entitiesStore.length).toBe(0);
+    expect((engine as any)._entitiesStore.size).toBe(0);
   });
 
   it(`should remove entity from all systems`, () => {
     const system = engine.add(() => {}, [ 'component' ]) as System;
 
-    const entity = engine.add({ component: true }) as IEntity;
-    expect((system as any).entities.length).toBe(0);
+    const entity = engine.addEntity({ component: true });
+    expect((system as any).entities.size).toBe(0);
 
     engine.refreshEntity(entity);
-    expect((system as any).entities.length).toBe(1);
+    expect((system as any).entities.size).toBe(1);
 
     engine.removeEntity(entity);
-    expect((system as any).entities.length).toBe(0);
+    expect((system as any).entities.size).toBe(0);
   });
 });
 
