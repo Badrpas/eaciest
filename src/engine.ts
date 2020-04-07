@@ -1,30 +1,37 @@
-import { SimplifiedSystem, System, TSystemUpdateMethod } from "./system";
-import { ENGINE, IEntity, getEntity, IEntityProjection, isEntity } from "./entity";
-import { removeElementFromArray } from './auxiliary';
+import { SimplifiedSystem, System, TEntityRequirements, TSystemUpdateMethod } from "./system";
+import { ENGINE, IEntity, getEntity, IEntityProjection } from "./entity";
 
 interface IEngineOptions {
-  lazyEntityRefresh?: boolean
+  lazyEntityRefresh?: boolean;
+  lazyEntityAdd?: boolean;
 }
 
 type TSystemConstructor = new (...args: any[]) => System;
-type EntityOrSystem = IEntityProjection | IEntity | System | TSystemConstructor | TSystemUpdateMethod;
+type EntityOrSystemCandidate = IEntityProjection | IEntity | System | TSystemConstructor | TSystemUpdateMethod;
 
 
 export class Engine {
   options: Readonly<IEngineOptions>;
   private _systems: System[] = [];
 
-  private _entitiesStore: Set<IEntity> = new Set<IEntity>(); // TODO migrate to Set
-  get entities (): Set<IEntity> { return this._entitiesStore; }
+  private _entitiesStore: Set<IEntity> = new Set<IEntity>();
+
+  get entities (): Set<IEntity> {
+    return this._entitiesStore;
+  }
 
   private _dt: number = 0;
-  get dt (): number { return this._dt; }
+  get dt (): number {
+    return this._dt;
+  }
 
   private _entitiesRefreshQueue: Set<IEntity> = new Set<IEntity>();
+  private _entitiesToAddQueue: Set<IEntity> = new Set<IEntity>();
 
   constructor (options: IEngineOptions = {}) {
     this.options = {
       lazyEntityRefresh: true,
+      lazyEntityAdd    : false,
       ...options
     } as const;
   }
@@ -32,42 +39,69 @@ export class Engine {
   update = (dt: number) => {
     this._dt = dt;
 
-    // Maybe it should always be called?
-    if (!this.options.lazyEntityRefresh) {
-      this.handleChangedEntities();
-    }
+    this.processAddQueue();
 
-    this._systems.forEach(system => {
+    this.processChangedQueue();
+
+    for (const system of this._systems) {
       if (system.enabled) {
         system.update(this._dt);
       }
-    });
+    }
   };
 
-  add (obj: EntityOrSystem = {}, ...args: any[]): IEntity | System {
+  add (obj: EntityOrSystemCandidate = {}, ...args: any[]): IEntity | System {
     if (obj instanceof System) {
       return this.addSystem(obj);
     } else if (typeof obj === 'function') {
-      if (obj.prototype instanceof System) { // is child of System class
-        // TODO move to method
-        const system = this.instantiateSystem<System>(obj as TSystemConstructor, ...args);
 
-        return this.addSystem(system);
+      if (Engine.isSystemConstructor(obj)) {
+        return this.addSystemClass(obj, ...args);
       } else { // handler function
-        // TODO move to method
-        const system: System = new SimplifiedSystem(obj as TSystemUpdateMethod, ...args);
-
-        return this.addSystem(system);
+        const [ requirements ] = args;
+        return this.addHandler(obj as TSystemUpdateMethod, requirements);
       }
+
     } else {
       return this.addEntity(obj);
     }
   }
 
+  addEntity (candidate?: IEntity | IEntityProjection | null): IEntity {
+    if (!candidate) {
+      candidate = {};
+    }
+
+    const entity: IEntity = getEntity(candidate);
+
+    entity[ENGINE] = this;
+
+    if (this.options.lazyEntityAdd) {
+      this._entitiesToAddQueue.add(entity);
+    } else {
+      this._entitiesStore.add(entity);
+      this._markEntityChanged(entity);
+    }
+
+    return entity;
+  }
+
+  private addHandler (updateFn: TSystemUpdateMethod, requirements: TEntityRequirements) {
+    const system: System = new SimplifiedSystem(updateFn, requirements);
+
+    return this.addSystem(system);
+  }
+
+  private addSystemClass (Class: TSystemConstructor, ...args: any[]) {
+    const system = this.instantiateSystem<System>(Class, ...args);
+
+    return this.addSystem(system);
+  }
+
   /**
    * Alias for new SystemClass(...args)
    */
-  instantiateSystem <T extends System>(SystemClass: new (...args: any[]) => T, ...args: any[]): System {
+  instantiateSystem<T extends System> (SystemClass: new (...args: any[]) => T, ...args: any[]): System {
     return this.addSystem(new SystemClass(...args));
   }
 
@@ -82,21 +116,12 @@ export class Engine {
     return system;
   }
 
-  addEntity (candidate?: IEntity | IEntityProjection | null): IEntity {
-    if (!candidate) {
-      candidate = {};
+  processAddQueue () {
+    for (const entity of this._entitiesToAddQueue) {
+      this.entities.add(entity);
     }
 
-    const entity: IEntity = getEntity(candidate);
-
-    entity[ENGINE] = this;
-
-    // TODO add lazy check?
-    this._entitiesStore.add(entity);
-
-    this._markEntityChanged(entity);
-
-    return entity;
+    this._entitiesToAddQueue.clear();
   }
 
   _markEntityChanged (entity: IEntity) {
@@ -107,8 +132,10 @@ export class Engine {
     }
   }
 
-  handleChangedEntities () {
-    this._entitiesRefreshQueue.forEach(this.refreshEntity);
+  processChangedQueue () {
+    for (const entity of this._entitiesRefreshQueue) {
+      this.refreshEntity(entity);
+    }
   }
 
   refreshEntity = (entity: IEntity) => {
@@ -124,4 +151,9 @@ export class Engine {
     });
   }
 
+
+  private static isSystemConstructor (fn: Function | TSystemConstructor | TSystemUpdateMethod)
+    : fn is TSystemConstructor {
+    return fn.prototype instanceof System;
+  }
 }

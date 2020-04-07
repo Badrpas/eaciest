@@ -7,7 +7,7 @@ import {
   IS_PROXIED,
   IEntityProjection,
   isSystem,
-  SimplifiedSystem,
+  SimplifiedSystem, TEntitiesList,
 } from '../src';
 
 let engine: Engine;
@@ -256,15 +256,16 @@ describe(`removeEntity`, () => {
 
   it(`should remove entity from all systems`, () => {
     const system = engine.add(() => {}, [ 'component' ]) as System;
+    const systemEntities = (system as any).entities as TEntitiesList;
 
     const entity = engine.addEntity({ component: true });
-    expect((system as any).entities.size).toBe(0);
+    expect(systemEntities.size).toBe(0);
 
     engine.refreshEntity(entity);
-    expect((system as any).entities.size).toBe(1);
+    expect(systemEntities.size).toBe(1);
 
     engine.removeEntity(entity);
-    expect((system as any).entities.size).toBe(0);
+    expect(systemEntities.size).toBe(0);
   });
 });
 
@@ -287,33 +288,60 @@ describe(`update()`, () => {
 
   it(`should process refresh queue (lazyEntityRefresh === false)`, () => {
     engine = new Engine({ lazyEntityRefresh: false });
-    engine.handleChangedEntities = jest.fn();
+    engine.processChangedQueue = jest.fn();
 
     engine.update(123);
 
-    expect(engine.handleChangedEntities).toHaveBeenCalled();
+    expect(engine.processChangedQueue).toHaveBeenCalled();
   });
 
 
   it(`should process refresh queue (lazyEntityRefresh === true)`, () => {
     engine = new Engine({ lazyEntityRefresh: true });
-    engine.handleChangedEntities = jest.fn();
+    engine.processChangedQueue = jest.fn();
 
     engine.update(123);
 
-    expect(engine.handleChangedEntities).not.toHaveBeenCalled();
+    expect(engine.processChangedQueue).toHaveBeenCalled();
+  });
+
+  it(`should process add queue`, () => {
+    engine = new Engine({ lazyEntityAdd: true });
+    engine.processAddQueue = jest.fn();
+
+    engine.update(123);
+
+    expect(engine.processAddQueue).toHaveBeenCalled();
   });
 
 });
 
 describe(`handleChangedEntities()`, () => {
   it(`should process refresh queue`, () => {
-    expect((engine as any)._entitiesRefreshQueue.size).toBe(0);
+    const entitiesRefreshQueue = (engine as any)._entitiesRefreshQueue as Set<IEntity>;
+
+    expect(entitiesRefreshQueue.size).toBe(0);
 
     engine.add();
-    expect((engine as any)._entitiesRefreshQueue.size).toBe(1);
+    expect(entitiesRefreshQueue.size).toBe(1);
 
-    engine.handleChangedEntities();
-    expect((engine as any)._entitiesRefreshQueue.size).toBe(0);
+    engine.processChangedQueue();
+    expect(entitiesRefreshQueue.size).toBe(0);
+  });
+});
+
+describe(`processAddQueue()`, () => {
+  it(`should clear queue`, () => {
+    engine = new Engine({ lazyEntityAdd: true });
+    const entitiesAddQueue = (engine as any)._entitiesToAddQueue as Set<IEntity>;
+
+    expect(entitiesAddQueue.size).toBe(0);
+
+    engine.add({});
+    expect(entitiesAddQueue.size).toBe(1);
+
+    engine.processAddQueue();
+
+    expect(entitiesAddQueue.size).toBe(0);
   });
 });

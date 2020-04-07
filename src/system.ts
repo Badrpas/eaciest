@@ -1,28 +1,25 @@
 import { IEntity } from "./entity";
 import { Engine } from "./engine";
-import { logger, removeElementFromArray } from './auxiliary';
+import { logger } from './auxiliary';
 
-type TEntityPredicate = (entity: IEntity) => boolean;
+export type TEntityPredicate = (entity: IEntity) => boolean;
 
-type TEntityRequirementPredicate = TEntityPredicate;
-type TEntityRequirementConstraint = string | TEntityRequirementPredicate;
-type TEntityRequirementList = Array<TEntityRequirementConstraint>;
+export type TEntityRequirementPredicate = TEntityPredicate;
+export type TEntityRequirementConstraint = string | TEntityRequirementPredicate;
+export type TEntityRequirementList = Array<TEntityRequirementConstraint>;
 
-type TEntityRequirements = TEntityRequirementList
-                         | { [key: string]: TEntityRequirementList }
-                         | null;
+export type TEntityRequirements = TEntityRequirementList
+  | { [key: string]: TEntityRequirementList }
+  | null;
 
-const isEntityRequirementList = (requirements: TEntityRequirements)
-  : requirements is TEntityRequirementList => {
-  return requirements instanceof Array;
-};
 
-type TEntitiesList = Set<IEntity>;
-type TEntitiesListMap = { [key: string]: TEntitiesList };
-type TEntities = TEntitiesListMap | TEntitiesList;
+export type TEntitiesList = Set<IEntity>;
+export type TEntitiesListMap = { [key: string]: TEntitiesList };
+export type TEntities = TEntitiesListMap | TEntitiesList;
 
 export type TSystemUpdateMethod = (dt?: number) => void;
-const dummyUpdateMethod: TSystemUpdateMethod = (dt?: number) => {};
+
+export const dummyUpdateMethod: TSystemUpdateMethod = (dt?: number) => {};
 
 export class System {
   public enabled: boolean = true;
@@ -49,17 +46,23 @@ export class System {
   requirements: TEntityRequirements = null;
   // TODO add requirements change handler
 
-  protected entities: TEntities = new Set<IEntity>();
+  protected entities!: TEntities;
 
   private _entitiesInitialized: boolean = false;
 
-  initialize () {
-    this._initEntities();
+  constructor (requirements: TEntityRequirements = null) {
+    if (requirements) {
+      this.requirements = requirements;
+    }
   }
 
   /**
    * Called from `Engine.prototype.addSystem` method
    */
+  initialize () {
+    this._initEntities();
+  }
+
   private _initEntities () {
     if (this._entitiesInitialized) {
       return;
@@ -70,11 +73,13 @@ export class System {
       return;
     }
 
-    if (!(this.requirements instanceof Array)) {
+    if (!System._requirementsIsList(this.requirements)) {
       this.entities = {};
       for (const key of Object.keys(this.requirements)) {
         this.entities[key] = new Set<IEntity>();
       }
+    } else {
+      this.entities = new Set<IEntity>();
     }
   }
 
@@ -84,13 +89,14 @@ export class System {
 
   update: TSystemUpdateMethod = dummyUpdateMethod;
 
-  private _testFunctionCache: Array<[Array<TEntityRequirementConstraint>, TEntityPredicate]> = [];
+  private _testFunctionCache: Map<Array<TEntityRequirementConstraint>, TEntityPredicate>
+                        = new Map<Array<TEntityRequirementConstraint>, TEntityPredicate>();
 
   getTestFunction (componentList: TEntityRequirementList = []): TEntityPredicate {
-    const cacheEntry = this._testFunctionCache.find(([array]) => array === componentList);
+    const cacheEntry = this._testFunctionCache.get(componentList);
 
     if (cacheEntry) {
-      return cacheEntry[1];
+      return cacheEntry;
     }
 
     const tests = componentList.map(predicate => {
@@ -105,7 +111,7 @@ export class System {
       return tests.every(test => test(entity));
     };
 
-    this._testFunctionCache.push([componentList, testFn]);
+    this._testFunctionCache.set(componentList, testFn);
 
     return testFn;
   }
@@ -122,15 +128,20 @@ export class System {
 
     // Single collection
     if (System._requirementsIsList(requirements) && System._entitiesIsList(requirements, this.entities)) {
+
       if (this.isEntityMeetsRequirementList(entity, requirements)) {
         this.addEntity(entity);
       } else {
         this.removeEntity(entity);
       }
+
     } else if (typeof requirements === 'object') { // Collections map
+
       for (const [collectionName, requirement] of Object.entries(requirements)) {
+
         if (!System._requirementsIsList(requirement)) {
           logger.warn(`Wrong requirement "${collectionName}":`, requirement, 'in', this);
+
           continue;
         }
 
@@ -139,6 +150,7 @@ export class System {
         } else {
           this.removeEntity(entity, collectionName);
         }
+
       }
     } else {
       throw new Error(`Incorrect requirements type. Expected Array or Object got ${typeof requirements}`);
@@ -172,7 +184,6 @@ export class System {
     }
   }
 
-  // TODO Should it return whole map if no collectionName provided?
   getEntities<T extends IEntity = IEntity> (collectionName?: string): Iterable<T> {
     if (!this.requirements && this._engine) {
       return this._engine.entities.values() as Iterable<T>;
@@ -189,20 +200,20 @@ export class System {
     return this.entities as Iterable<T>;
   }
 
-  getEntity <T extends IEntity> (collectionName?: string): T | void {
+  getEntity<T extends IEntity> (collectionName?: string): T | void {
     const entities = this.getEntities<T>(collectionName);
     if (entities) {
       const iterator = entities[Symbol.iterator]?.();
-      return iterator?.next()?.value; // TODO here Iterable
+      return iterator?.next()?.value;
     }
   }
 
   /**
    * Used to iterate through all collections
    */
-  getAllEntityCollections (): Array<TEntitiesList> { // TODO migrate to set also?
+  getAllEntityCollections (): Array<TEntitiesList> {
     if (this.entities instanceof Set) {
-      return [this.entities]; // ?
+      return [this.entities];
     } else {
       return Object.values(this.entities);
     }
@@ -227,11 +238,11 @@ export class System {
 
 }
 
-export const isSystem = (system: any) : system is System => {
+export const isSystem = (system: any): system is System => {
   return system instanceof System;
 };
 
-// TODO move out to file
+// TODO move to file
 /**
  * Used for simplified handler declaration via engine.add()
  */
@@ -239,7 +250,7 @@ export class SimplifiedSystem extends System {
   private _updateHandler: TSystemUpdateMethod = dummyUpdateMethod;
 
   constructor (update: TSystemUpdateMethod, requirements: TEntityRequirements = null) {
-    super();
+    super(requirements);
     this._updateHandler = update;
     this.requirements = requirements;
   }
