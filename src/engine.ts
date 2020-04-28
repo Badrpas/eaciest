@@ -1,5 +1,5 @@
 import { SimplifiedSystem, System, TEntityRequirements, TSystemUpdateMethod } from "./system";
-import { ENGINE, IEntity, getEntity, IEntityProjection } from "./entity";
+import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY } from "./entity";
 
 interface IEngineOptions {
   lazyEntityRefresh?: boolean;
@@ -26,7 +26,7 @@ export class Engine {
   }
 
   private _entitiesRefreshQueue: Set<IEntity> = new Set<IEntity>();
-  private _entitiesToAddQueue: Set<IEntity> = new Set<IEntity>();
+  private _entitiesToAddQueue  : Set<IEntity> = new Set<IEntity>();
 
   constructor (options: IEngineOptions = {}) {
     this.options = {
@@ -121,12 +121,14 @@ export class Engine {
   processAddQueue () {
     for (const entity of this._entitiesToAddQueue) {
       this.entities.add(entity);
+      this._markEntityChanged(entity);
     }
 
     this._entitiesToAddQueue.clear();
   }
 
   _markEntityChanged (entity: IEntity) {
+    entity = getEntity(entity);
     if (this.options.lazyEntityRefresh) {
       this._entitiesRefreshQueue.add(entity);
     } else {
@@ -141,18 +143,28 @@ export class Engine {
   }
 
   refreshEntity = (entity: IEntity) => {
-    this._systems.forEach(system => system.refreshEntity(entity));
+    entity = entity[PROXY];
     this._entitiesRefreshQueue.delete(entity);
+
+    for (const system of this._systems) {
+      system.refreshEntityStatus(entity);
+    }
   };
 
   removeEntity (entity: IEntity) {
     this._entitiesStore.delete(entity);
+    this._entitiesRefreshQueue.delete(entity);
+    this._entitiesToAddQueue.delete(entity);
 
-    this._systems.forEach(system => {
+    for (const system of this._systems) {
       system.removeEntity(entity);
-    });
+    }
   }
 
+  removeSystem (system: System) {
+    const index = this._systems.indexOf(system);
+    this._systems.splice(index, 1);
+  }
 
   private static isSystemConstructor (fn: Function | TSystemConstructor | TSystemUpdateMethod)
     : fn is TSystemConstructor {

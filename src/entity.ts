@@ -1,7 +1,7 @@
 import { Engine } from './engine';
 
 export const ENGINE = Symbol('Engine (World)');
-export const IS_PROXIED = Symbol('Is Entity proxied by handlers');
+export const PROXY = Symbol('Is Entity proxied by handlers');
 
 export interface IEntityProjection {
   [key: string]: any
@@ -9,12 +9,12 @@ export interface IEntityProjection {
 
 export interface IEntity extends IEntityProjection {
   [ENGINE]?: Engine
-  [IS_PROXIED]: boolean
+  [PROXY]: IEntity
 }
 
 type PropKey = string | number | symbol;
 
-const IGNORED_SYMBOLS = [ENGINE, IS_PROXIED] as const;
+const IGNORED_SYMBOLS = [ENGINE, PROXY] as const;
 
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
   set (entity: IEntity, prop: PropKey, value: any): boolean {
@@ -40,14 +40,23 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
   }
 };
 
+/**
+ *
+ * @param candidate
+ */
 export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
   if (isEntity(candidate)) {
-    return candidate;
+    return candidate[PROXY];
   }
 
-  const entity = { ...candidate, [IS_PROXIED]: true };
+  // const entity: IEntity = { ...candidate } as IEntity;
+  const entity: IEntity = candidate as IEntity;
 
-  return new Proxy(entity, EntityProxyHandler);
+  const proxy = new Proxy(entity, EntityProxyHandler);
+
+  entity[PROXY] = proxy;
+
+  return proxy;
 };
 
 export const isEntity = (entity?: IEntity | IEntityProjection ): entity is IEntity => {
@@ -55,5 +64,5 @@ export const isEntity = (entity?: IEntity | IEntityProjection ): entity is IEnti
     return false;
   }
 
-  return IS_PROXIED in entity;
+  return PROXY in entity;
 };
