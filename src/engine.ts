@@ -91,23 +91,14 @@ export class Engine {
     return entity;
   }
 
-  private addHandler (updateFn: TSystemUpdateMethod, requirements: TEntityRequirements) {
+  addHandler (updateFn: TSystemUpdateMethod, requirements: TEntityRequirements) {
     const system: System = new SimplifiedSystem(updateFn, requirements);
 
     return this.addSystem(system);
   }
 
-  private addSystemClass (Class: TSystemConstructor, ...args: any[]) {
-    const system = this.instantiateSystem<System>(Class, ...args);
-
-    return this.addSystem(system);
-  }
-
-  /**
-   * Alias for new SystemClass(...args)
-   */
-  instantiateSystem<T extends System> (SystemClass: new (...args: any[]) => T, ...args: any[]): System {
-    return this.addSystem(new SystemClass(...args));
+  addSystemClass (Class: TSystemConstructor, ...args: any[]) {
+    return this.addSystem(new Class(...args));
   }
 
   addSystem<T extends System> (system: T): System {
