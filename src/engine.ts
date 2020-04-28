@@ -44,7 +44,7 @@ export class Engine {
     this.processChangedQueue();
 
     for (const system of this._systems) {
-      if (system.enabled) {
+      if (system.enabled && system.isQualifiedForUpdate()) {
         try {
           system.update(this._dt);
         } catch (err) {

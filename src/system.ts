@@ -264,6 +264,23 @@ export class System {
     }
   }
 
+  isQualifiedForUpdate(): boolean {
+    if (!this._entityStore) {
+      return true; // Systems without requirements are `global`
+    }
+
+    if (System._entitiesIsList(this.requirements, this._entityStore)) {
+      return !!this._entityStore.size;
+    } else { // collection map
+      for (const list of Object.values(this._entityStore)) {
+        if (list.size) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
   removeEntity (entity: IEntity, collectionName?: string): boolean {
     // Remove one specific
     if (typeof collectionName === 'string') {
