@@ -4,7 +4,7 @@ import {
   IEntity,
   System,
   ENGINE,
-  IS_PROXIED,
+  PROXY,
   IEntityProjection,
   isSystem,
   SimplifiedSystem, TEntitiesList,
@@ -22,7 +22,7 @@ const omitEntitySymbols = (entity: IEntity | IEntityProjection): IEntityProjecti
 
   const {
     [ENGINE]: _,
-    [IS_PROXIED]: __,
+    [PROXY] : __,
     ...entityData
   } = entity;
 
@@ -186,11 +186,11 @@ describe(`addSystem()`, () => {
   it(`should run refresh against existing entities`, () => {
     const entity = engine.addEntity();
     const system = new System();
-    system.refreshEntity = jest.fn();
+    system.refreshEntityStatus = jest.fn();
 
     engine.addSystem(system);
 
-    expect((system.refreshEntity as any).mock.calls)
+    expect((system.refreshEntityStatus as any).mock.calls)
       .toEqual([expect.arrayContaining([entity])]);
   });
 
@@ -223,13 +223,13 @@ describe(`refreshEntity()`, () => {
   it(`should run refreshEntity() over all systems`, () => {
     engine = new Engine({ lazyEntityRefresh: true });
     const system = engine.add(() => {}) as System;
-    system.refreshEntity = jest.fn();
+    system.refreshEntityStatus = jest.fn();
 
     const entity = engine.addEntity(); // add new entity to refresh queue
 
     engine.refreshEntity(entity);
 
-    expect(system.refreshEntity).toHaveBeenCalled();
+    expect(system.refreshEntityStatus).toHaveBeenCalled();
   });
 
   it(`should remove entity from update queue`, () => {
