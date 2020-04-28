@@ -25,6 +25,8 @@ export class System {
   public enabled: boolean = true;
   private _engine!: Engine;
 
+  public priority = 5;
+
   /**
    * Defines list(s) of entities with required components.
    * For example:

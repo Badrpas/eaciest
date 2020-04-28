@@ -116,7 +116,13 @@ export class Engine {
 
     this._systems.push(system);
 
-    this._entitiesStore.forEach(system.refreshEntity);
+    for (const entity of this._entitiesStore) {
+      system.refreshEntityStatus(entity);
+    }
+
+    this._systems.sort((a, b) => {
+      return a.priority - b.priority;
+    });
 
     return system;
   }
