@@ -59,6 +59,9 @@ export class System {
       this._entityProxy = null;
       return;
     }
+    if (!this._entityStore) {
+      return;
+    }
     return new Proxy(this._entityStore, {
       get: (target: TEntityStore, p: string, receiver: any): any => {
         return this.getEntities(p);

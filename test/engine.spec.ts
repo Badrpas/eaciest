@@ -16,11 +16,8 @@ beforeEach(() => {
 });
 
 const omitEntitySymbols = (entity: IEntity | IEntityProjection): IEntityProjection => {
-  if (!isEntity(entity)) {
-    return entity;
-  }
-
   const {
+  // @ts-ignore
     [ENGINE]: _,
     [PROXY] : __,
     ...entityData
@@ -43,8 +40,9 @@ describe(`add()`, () => {
     const entity = engine.add(initialProps);
 
     expect(isEntity(entity)).toBe(true);
-    expect(initialProps).toEqual({ componentName: 123 });
-    expect(omitEntitySymbols(entity)).toEqual(initialProps);
+    expect(isEntity(initialProps)).toBe(false);
+
+    expect(entity).toEqual(initialProps);
     expect(entity).not.toBe(initialProps);
   });
 
@@ -56,14 +54,14 @@ describe(`add()`, () => {
     expect(system).toBeInstanceOf(CustomSystem);
   });
 
-  it(`should not accept external class`, () => {
+  it(`should not add external class as system`, () => {
     class CustomSystem {}
-    const system = engine.add(new CustomSystem());
+    const result = engine.add(new CustomSystem());
 
-    expect(system).not.toBeInstanceOf(System);
-    expect(system).not.toBeInstanceOf(CustomSystem);
+    expect(isSystem(result)).not.toBe(true);
+    expect(result).toBeInstanceOf(CustomSystem);
 
-    expect(isEntity(system)).toBe(true);
+    expect(isEntity(result)).toBe(true);
   });
 
   it(`should accept class`, () => {
@@ -136,13 +134,15 @@ describe(`addEntity()`, () => {
     expect(omitEntitySymbols(entity)).toEqual({ foo: 'bar' })
   });
 
-  it(`should not mutate passed object`, () => {
+  it(`should mutate passed object`, () => {
     const projection = { foo: 'bar' };
     const entity = engine.addEntity(projection);
 
-    expect(projection).toEqual({ foo: 'bar' });
+    expect(omitEntitySymbols(projection)).not.toEqual(projection);
+
+    expect(omitEntitySymbols(projection)).toEqual({ foo: 'bar' });
     expect(entity).not.toBe(projection);
-    expect(entity).not.toEqual(projection);
+    expect(entity).toEqual(projection);
   });
 
   it(`should set ENGINE symbol`, () => {

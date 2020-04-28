@@ -5,10 +5,11 @@ export const PROXY = Symbol('Is Entity proxied by handlers');
 
 export interface IEntityProjection {
   [key: string]: any
+  [PROXY]?: IEntity
 }
 
 export interface IEntity extends IEntityProjection {
-  [ENGINE]?: Engine
+  [ENGINE]: Engine
   [PROXY]: IEntity
 }
 
@@ -59,10 +60,16 @@ export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
   return proxy;
 };
 
+export const isEntityProjection = (entity?: IEntityProjection): entity is IEntity => {
+  if (!entity) return false;
+
+  return PROXY in entity && (entity[PROXY] !== entity);
+};
+
 export const isEntity = (entity?: IEntity | IEntityProjection ): entity is IEntity => {
   if (!entity) {
     return false;
   }
 
-  return PROXY in entity;
+  return PROXY in entity && (entity[PROXY] === entity);
 };

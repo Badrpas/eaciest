@@ -25,27 +25,27 @@ describe(`System`, () => {
         const system = new System([ 'qwe' ]);
         system.initialize();
 
-        expect((system as any).entities).toBeInstanceOf(CollectionType);
+        expect((system as any)._entityStore).toBeInstanceOf(CollectionType);
       });
 
       it(`should be initialized to collections map`, () => {
         const system = new System({ collection: [ 'qwe' ]});
         system.initialize();
 
-        expect((system as any).entities).toEqual({
+        expect((system as any)._entityStore).toEqual({
           collection: expect.any(CollectionType)
         });
         // expect((system as any).entities?.collection).toBeInstanceOf(CollectionType);
       });
 
-      it(`shouldn't be initialized`, () => {
+      it(`should be empty`, () => {
         let system = new System(null);
         system.initialize();
-        expect((system as any).entities).toBeUndefined();
+        expect((system as any).entities).toEqual([]);
 
         system = new System();
         system.initialize();
-        expect((system as any).entities).toBeUndefined();
+        expect((system as any).entities).toEqual([]);
       });
     });
 
