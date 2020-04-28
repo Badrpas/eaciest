@@ -45,7 +45,12 @@ export class Engine {
 
     for (const system of this._systems) {
       if (system.enabled) {
-        system.update(this._dt);
+        try {
+          system.update(this._dt);
+        } catch (err) {
+          console.error(err);
+          system.enabled = false;
+        }
       }
     }
   };
