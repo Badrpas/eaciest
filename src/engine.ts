@@ -152,6 +152,8 @@ export class Engine {
   };
 
   removeEntity (entity: IEntity) {
+    entity = getEntity(entity);
+
     this._entitiesStore.delete(entity);
     this._entitiesRefreshQueue.delete(entity);
     this._entitiesToAddQueue.delete(entity);
