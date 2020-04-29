@@ -47,6 +47,8 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
  */
 export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
   if (isEntity(candidate)) {
+    return candidate;
+  } else if (isEntityProjection(candidate)) {
     return candidate[PROXY];
   }
 
