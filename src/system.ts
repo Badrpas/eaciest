@@ -288,6 +288,7 @@ export class System {
         const store = this._entityStore[collectionName];
         if (store.has(entity)) {
           store.delete(entity);
+          this.onEntityRemoved(entity);
           return true;
         }
         return false;
@@ -302,7 +303,14 @@ export class System {
       wasInSystem = wasInSystem || collection.has(entity);
       collection.delete(entity);
     }
+    if (wasInSystem) {
+      this.onEntityRemoved(entity);
+    }
     return wasInSystem;
+  }
+
+  /* override */ onEntityRemoved (entity: IEntity) {
+
   }
 }
 
