@@ -34,6 +34,8 @@ export class Engine {
       lazyEntityAdd    : false,
       ...options
     } as const;
+
+    this.add = this.add.bind(this);
   }
 
   update = (dt: number) => {
