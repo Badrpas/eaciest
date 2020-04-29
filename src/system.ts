@@ -253,14 +253,14 @@ export class System {
   /**
    * Used to iterate through all collections
    */
-  getAllEntityCollections (): Array<TEntitiesList> {
+  *getAllEntityCollections (): Iterable<TEntitiesList> {
     if (!this._entityStore) {
-      return [];
+      return;
     }
     if (System._entitiesIsList(this.requirements, this._entityStore)) {
-      return [this._entityStore];
+      yield this._entityStore;
     } else { // collection map
-      return Object.values(this._entityStore);
+      yield* Object.values(this._entityStore);
     }
   }
 
