@@ -54,19 +54,23 @@ export class System {
   private _entityProxy?: TEntitiesListMap;
 
   private _initEntityProxy () {
-    if (System._requirementsIsList(this.requirements)) {
+    if (System._entitiesIsList(this.requirements, this._entityStore)) {
       // @ts-ignore
       this._entityProxy = null;
       return;
-    }
+    } //else {
     if (!this._entityStore) {
       return;
     }
-    return new Proxy(this._entityStore, {
+
+
+    this._entityProxy = new Proxy<TEntitiesListMap>(this._entityStore, {
       get: (target: TEntityStore, p: string, receiver: any): any => {
         return this.getEntities(p);
       }
     });
+
+    return this._entityProxy;
   }
 
   public get entities(): TEntities {
