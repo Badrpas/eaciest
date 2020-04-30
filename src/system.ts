@@ -11,7 +11,10 @@ export type TEntityRequirementList = Array<TEntityRequirementConstraint>;
 export type TEntityRequirements = TEntityRequirementList
   | { [key: string]: TEntityRequirementList }
   | null;
-
+export type TEntityRequirementListCandidate = TEntityRequirementList | TEntityRequirementConstraint
+export type TEntityRequirementsCandidate = TEntityRequirementListCandidate
+  | { [key: string]: TEntityRequirementListCandidate }
+  | null;
 
 export type TEntitiesList = Set<IEntity>;
 export type TEntitiesListMap = { [key: string]: TEntitiesList };
@@ -47,14 +50,47 @@ export class System {
    *   entityList2: [...]
    * }
    */
-  requirements: TEntityRequirements = null;
+  private _requirements: TEntityRequirements = null;
+  get requirements (): TEntityRequirements {
+    return this._requirements;
+  }
+  set requirements (value: TEntityRequirements) {
+    this.setRequirements(value);
+  }
+
+  setRequirements (value: TEntityRequirementsCandidate) {
+    if (!value) {
+      this._requirements = null;
+      return;
+    }
+    if (typeof value === 'string' || typeof value === 'symbol' || typeof value === 'function') {
+      this._requirements = [value];
+      return;
+    }
+    if (value instanceof Array) {
+      this._requirements = value;
+      return;
+    }
+
+    value = value as { [key: string]: TEntityRequirementListCandidate };
+
+    for (const [key, constr] of Object.entries(value)) {
+      if (typeof constr === 'string' || typeof constr === 'symbol' || typeof constr === 'function') {
+        value[key] = [constr];
+      }
+    }
+
+    this._requirements = value as { [key: string]: TEntityRequirementList };
+  }
+
+
   // TODO add requirements change handler
 
   protected _entityStore!: TEntityStore;
   private _entityProxy?: TEntitiesListMap;
 
   private _initEntityProxy () {
-    if (System._entitiesIsList(this.requirements, this._entityStore)) {
+    if (System._entitiesIsList(this._requirements, this._entityStore)) {
       // @ts-ignore
       this._entityProxy = null;
       return;
@@ -74,7 +110,7 @@ export class System {
   }
 
   public get entities(): TEntities {
-    if (System._requirementsIsList(this.requirements)) {
+    if (System._requirementsIsList(this._requirements)) {
       return this.getEntities();
     }
 
@@ -91,9 +127,9 @@ export class System {
 
   private _entitiesInitialized: boolean = false;
 
-  constructor (requirements: TEntityRequirements = null) {
+  constructor (requirements: TEntityRequirementsCandidate = null) {
     if (requirements) {
-      this.requirements = requirements;
+      this.setRequirements(requirements);
     }
   }
 
@@ -110,13 +146,13 @@ export class System {
     }
     this._entitiesInitialized = true;
 
-    if (this.requirements === null) {
+    if (this._requirements === null) {
       return;
     }
 
-    if (!System._requirementsIsList(this.requirements)) {
+    if (!System._requirementsIsList(this._requirements)) {
       this._entityStore = {};
-      for (const key of Object.keys(this.requirements)) {
+      for (const key of Object.keys(this._requirements)) {
         this._entityStore[key] = new Set<IEntity>();
       }
     } else {
@@ -146,7 +182,7 @@ export class System {
     }
 
     const tests = requirementList.map(predicate => {
-      if (typeof predicate === 'string') {
+      if (typeof predicate === 'string' || typeof predicate === 'symbol') {
         return (entity: IEntity) => predicate in entity;
       } else if (typeof predicate === 'function') {
         return predicate;
@@ -167,23 +203,23 @@ export class System {
    * @param entity
    */
   refreshEntityStatus = (entity: IEntity): void => {
-    const { requirements } = this;
-    if (requirements === null) {
+    const { _requirements } = this;
+    if (_requirements === null) {
       return;
     }
 
     // Single collection
-    if (System._requirementsIsList(requirements) && System._entitiesIsList(requirements, this._entityStore)) {
+    if (System._requirementsIsList(_requirements) && System._entitiesIsList(_requirements, this._entityStore)) {
 
-      if (this._isEntityMeetsRequirementList(entity, requirements)) {
+      if (this._isEntityMeetsRequirementList(entity, _requirements)) {
         this.addEntity(entity);
       } else {
         this.removeEntity(entity);
       }
 
-    } else if (typeof requirements === 'object') { // Collections map
+    } else if (typeof _requirements === 'object') { // Collections map
 
-      for (const [collectionName, requirement] of Object.entries(requirements)) {
+      for (const [collectionName, requirement] of Object.entries(_requirements)) {
 
         if (!System._requirementsIsList(requirement)) {
           logger.warn(`Wrong requirement "${collectionName}":`, requirement, 'in', this);
@@ -199,7 +235,7 @@ export class System {
 
       }
     } else {
-      throw new Error(`Incorrect requirements type. Expected Array or Object got ${typeof requirements}`);
+      throw new Error(`Incorrect requirements type. Expected Array or Object got ${typeof _requirements}`);
     }
   };
 
@@ -219,7 +255,7 @@ export class System {
   }
 
   addEntity (entity: IEntity, collectionName: string | null = null) {
-    if (!System._entitiesIsList(this.requirements, this._entityStore)) {
+    if (!System._entitiesIsList(this._requirements, this._entityStore)) {
       if (typeof collectionName === 'string') {
         this._entityStore[collectionName].add(entity);
       } else {
@@ -231,12 +267,12 @@ export class System {
   }
 
   getEntities<T extends IEntity = IEntity> (collectionName?: string): Iterable<T> {
-    if (!this.requirements && this._engine) {
+    if (!this._requirements && this._engine) {
       return this._engine.entities.values() as Iterable<T>;
     }
 
     if (typeof collectionName === 'string') {
-      if (!System._entitiesIsList(this.requirements, this._entityStore)) {
+      if (!System._entitiesIsList(this._requirements, this._entityStore)) {
         return this._entityStore[collectionName] as Iterable<T>;
       }
 
@@ -261,7 +297,7 @@ export class System {
     if (!this._entityStore) {
       return;
     }
-    if (System._entitiesIsList(this.requirements, this._entityStore)) {
+    if (System._entitiesIsList(this._requirements, this._entityStore)) {
       yield this._entityStore;
     } else { // collection map
       yield* Object.values(this._entityStore);
@@ -273,7 +309,7 @@ export class System {
       return true; // Systems without requirements are `global`
     }
 
-    if (System._entitiesIsList(this.requirements, this._entityStore)) {
+    if (System._entitiesIsList(this._requirements, this._entityStore)) {
       return !!this._entityStore.size;
     } else { // collection map
       for (const list of Object.values(this._entityStore)) {
@@ -288,7 +324,7 @@ export class System {
   removeEntity (entity: IEntity, collectionName?: string): boolean {
     // Remove one specific
     if (typeof collectionName === 'string') {
-      if (!System._entitiesIsList(this.requirements, this._entityStore)) {
+      if (!System._entitiesIsList(this._requirements, this._entityStore)) {
         const store = this._entityStore[collectionName];
         if (store.has(entity)) {
           store.delete(entity);
