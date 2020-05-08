@@ -1,4 +1,4 @@
-import { IEntity } from "./entity";
+import { DELETED_PROPS, IEntity, TPropKey } from "./entity";
 import { Engine } from "./engine";
 import { logger } from './auxiliary';
 
@@ -328,7 +328,7 @@ export class System {
         const store = this._entityStore[collectionName];
         if (store.has(entity)) {
           store.delete(entity);
-          this.onEntityRemoved(entity);
+          this.onEntityRemoved(entity, entity[DELETED_PROPS]);
           return true;
         }
         return false;
@@ -344,13 +344,18 @@ export class System {
       collection.delete(entity);
     }
     if (wasInSystem) {
-      this.onEntityRemoved(entity);
+      this.onEntityRemoved(entity, entity[DELETED_PROPS]);
     }
     return wasInSystem;
   }
 
-  /* override */ onEntityRemoved (entity: IEntity) {
+  /* override */ onEntityRemoved (entity: IEntity, deletedComponents: Map<TPropKey, any>) {
 
+  }
+
+  getComponentFrom(entity: IEntity, key: TPropKey): any {
+    // @ts-ignore
+    return entity[key] || entity[DELETED_PROPS].get(key);
   }
 }
 

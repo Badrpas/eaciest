@@ -1,24 +1,30 @@
 import { Engine } from './engine';
 
-export const ENGINE = Symbol('Engine (World)');
-export const PROXY = Symbol('Is Entity proxied by handlers');
+
+let entityIdCounter = 1;
+export const ENTITY_ID = Symbol.for('Entity ID');
+export const ENGINE = Symbol.for('Engine');
+export const PROXY = Symbol.for('Entity Proxy');
+export const DELETED_PROPS = Symbol.for('Contains removed components (properties)');
 
 export interface IEntityProjection {
   [key: string]: any
   [PROXY]?: IEntity
+  [ENTITY_ID]?: number
 }
 
 export interface IEntity extends IEntityProjection {
   [ENGINE]: Engine
   [PROXY]: IEntity
+  [DELETED_PROPS]: Map<TPropKey, any>
 }
 
-type PropKey = string | number | symbol;
+export type TPropKey = string | number | symbol;
 
 const IGNORED_SYMBOLS = [ENGINE, PROXY] as const;
 
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
-  set (entity: IEntity, prop: PropKey, value: any): boolean {
+  set (entity: IEntity, prop: TPropKey, value: any): boolean {
     // We should trigger update when new property added
     const isIgnoredSymbol = typeof prop === 'symbol' && IGNORED_SYMBOLS.some(x => x === prop);
     const needUpdate = !isIgnoredSymbol && !(prop in entity);
@@ -33,10 +39,13 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
     return true;
   },
 
-  deleteProperty (entity: IEntity, prop: PropKey): boolean {
+  deleteProperty (entity: IEntity, prop: TPropKey): boolean {
+    // @ts-ignore
+    entity[DELETED_PROPS].set(prop, entity[prop]);
     // @ts-ignore
     delete entity[prop];
-    entity[ENGINE]?.refreshEntity(entity);
+    entity[ENGINE]?._markEntityChanged(entity);
+
     return true;
   }
 };
@@ -58,6 +67,8 @@ export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
   const proxy = new Proxy(entity, EntityProxyHandler);
 
   entity[PROXY] = proxy;
+  entity[ENTITY_ID] = entityIdCounter++;
+  entity[DELETED_PROPS] = new Map();
 
   return proxy;
 };

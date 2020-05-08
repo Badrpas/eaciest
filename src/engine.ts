@@ -1,5 +1,5 @@
 import { SimplifiedSystem, System, TEntityRequirements, TSystemUpdateMethod } from "./system";
-import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY } from "./entity";
+import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY, DELETED_PROPS } from "./entity";
 
 interface IEngineOptions {
   lazyEntityRefresh?: boolean;
@@ -57,7 +57,15 @@ export class Engine {
     }
   };
 
-  add (obj: EntityOrSystemCandidate = {}, ...args: any[]): IEntity | System {
+  add (obj: EntityOrSystemCandidate | Array<EntityOrSystemCandidate> = {}, ...args: any[]): IEntity | System | Array<IEntity | System > {
+    if (obj instanceof Array) {
+      return obj.map(x => this.add(x)) as Array<IEntity | System>;
+    }
+    if (obj instanceof Promise) {
+      // @ts-ignore
+      return obj.then(x => this.add(x));
+    }
+
     if (obj instanceof System) {
       return this.addSystem(obj);
     } else if (typeof obj === 'function') {
@@ -151,6 +159,10 @@ export class Engine {
     for (const system of this._systems) {
       system.refreshEntityStatus(entity);
     }
+
+    if (entity[DELETED_PROPS]?.size) {
+      entity[DELETED_PROPS]?.clear();
+    }
   };
 
   removeEntity (entity: IEntity) {
@@ -159,6 +171,8 @@ export class Engine {
     this._entitiesStore.delete(entity);
     this._entitiesRefreshQueue.delete(entity);
     this._entitiesToAddQueue.delete(entity);
+
+    delete entity[ENGINE];
 
     for (const system of this._systems) {
       system.removeEntity(entity);
