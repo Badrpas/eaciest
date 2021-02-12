@@ -5,7 +5,7 @@ import { logger } from './auxiliary';
 export type TEntityPredicate = (entity: IEntity) => boolean;
 
 export type TEntityRequirementPredicate = TEntityPredicate;
-export type TEntityRequirementConstraint = string | TEntityRequirementPredicate;
+export type TEntityRequirementConstraint = string | symbol | TEntityRequirementPredicate;
 export type TEntityRequirementList = Array<TEntityRequirementConstraint>;
 
 export type TEntityRequirements = TEntityRequirementList
@@ -82,9 +82,6 @@ export class System {
 
     this._requirements = value as { [key: string]: TEntityRequirementList };
   }
-
-
-  // TODO add requirements change handler
 
   protected _entityStore!: TEntityStore;
   private _entityProxy?: TEntitiesListMap;
