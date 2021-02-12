@@ -1,11 +1,13 @@
 {
   "name": "eaciest",
   "license": "MIT",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "JavaScript ECS implementation",
   "main": "dist/lib/index.js",
   "types": "dist/types/index.d.ts",
-  "keywords": [ "ecs" ],
+  "keywords": [
+    "ecs"
+  ],
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
