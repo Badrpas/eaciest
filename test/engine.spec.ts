@@ -16,14 +16,12 @@ beforeEach(() => {
 });
 
 const omitEntitySymbols = (entity: IEntity | IEntityProjection): IEntityProjection => {
-  const {
+  return Object.fromEntries(
   // @ts-ignore
-    [ENGINE]: _,
-    [PROXY] : __,
-    ...entityData
-  } = entity;
-
-  return entityData;
+    Object.entries(entity).map(([key, val]) => {
+      return typeof key === 'symbol' ? null : [key, val];
+    }).filter(x => !!x)
+  );
 };
 
 describe(`add()`, () => {
@@ -93,9 +91,9 @@ describe(`add()`, () => {
     expect(system).toBeInstanceOf(SimplifiedSystem);
   });
 
-  it(`should call handler function with correct argumetns and context`, () => {
+  it(`should call handler function with correct arguments and context`, () => {
     const handler = jest.fn().mockReturnThis();
-    const system = engine.add(handler);
+    const system = <System>engine.add(handler);
 
     system.update(123);
     expect(handler).toHaveBeenCalledWith(123);
@@ -105,7 +103,7 @@ describe(`add()`, () => {
   it(`should accept handler function and requirements`, () => {
     const handler = jest.fn();
     const requirements = ['someComponent'];
-    const system = engine.add(handler, requirements);
+    const system = <System>engine.add(handler, requirements);
 
     expect(isSystem(system)).toBe(true);
     expect(system.requirements).toEqual(requirements);

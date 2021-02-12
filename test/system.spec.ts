@@ -116,13 +116,6 @@ describe(`System`, () => {
         (System as any)._requirementsIsList = pre;
       });
 
-      it(`incorrect requirements`, () => {
-        // @ts-ignore
-        const system = new System('qwe');
-        const entity = getEntity({});
-
-        expect(() => system.refreshEntityStatus(entity)).toThrow(/incorrect requirements/i);
-      });
     });
   });
   
