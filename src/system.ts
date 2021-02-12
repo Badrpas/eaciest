@@ -9,18 +9,18 @@ export type TEntityRequirementConstraint = string | symbol | TEntityRequirementP
 export type TEntityRequirementList = Array<TEntityRequirementConstraint>;
 
 export type TEntityRequirements = TEntityRequirementList
-  | { [key: string]: TEntityRequirementList }
+  | Record<string, TEntityRequirementList>
   | null;
 export type TEntityRequirementListCandidate = TEntityRequirementList | TEntityRequirementConstraint
 export type TEntityRequirementsCandidate = TEntityRequirementListCandidate
-  | { [key: string]: TEntityRequirementListCandidate }
+  | Record<string, TEntityRequirementListCandidate>
   | null;
 
 export type TEntitiesList = Set<IEntity>;
-export type TEntitiesListMap = { [key: string]: TEntitiesList };
+export type TEntitiesListMap = Record<string, TEntitiesList>;
 export type TEntityStore = TEntitiesListMap | TEntitiesList;
 
-export type TEntities = Iterable<IEntity> | { [key: string]: Iterable<IEntity> };
+export type TEntities = Iterable<IEntity> | Record<string, Iterable<IEntity>>;
 
 export type TSystemUpdateMethod = (dt?: number) => void;
 
@@ -72,7 +72,7 @@ export class System {
       return;
     }
 
-    value = value as { [key: string]: TEntityRequirementListCandidate };
+    value = <{ [key: string]: TEntityRequirementListCandidate }>value;
 
     for (const [key, constr] of Object.entries(value)) {
       if (typeof constr === 'string' || typeof constr === 'symbol' || typeof constr === 'function') {
@@ -80,7 +80,7 @@ export class System {
       }
     }
 
-    this._requirements = value as { [key: string]: TEntityRequirementList };
+    this._requirements = <Record<string, TEntityRequirementList>>value;
   }
 
   protected _entityStore!: TEntityStore;
@@ -265,18 +265,18 @@ export class System {
 
   getEntities<T extends IEntity = IEntity> (collectionName?: string): Iterable<T> {
     if (!this._requirements && this._engine) {
-      return this._engine.entities.values() as Iterable<T>;
+      return <Iterable<T>>this._engine.entities.values();
     }
 
     if (typeof collectionName === 'string') {
       if (!System._entitiesIsList(this._requirements, this._entityStore)) {
-        return this._entityStore[collectionName] as Iterable<T>;
+        return <Iterable<T>>this._entityStore[collectionName];
       }
 
       throw new Error(`System has a single collection.`);
     }
 
-    return this._entityStore as Iterable<T>;
+    return <Iterable<T>>this._entityStore;
   }
 
   getEntity<T extends IEntity> (collectionName?: string): T | void {
@@ -371,10 +371,9 @@ export class SimplifiedSystem extends System {
     super(requirements);
     this._updateHandler = update;
     this.requirements = requirements;
-    this.update = this.update.bind(this);
   }
 
-  update (dt?: number) {
+  update = (dt?: number) => {
     this._updateHandler(dt);
   }
 }

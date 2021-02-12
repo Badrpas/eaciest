@@ -59,7 +59,7 @@ export class Engine {
 
   add (obj: EntityOrSystemCandidate | Array<EntityOrSystemCandidate> = {}, ...args: any[]): IEntity | System | Array<IEntity | System > {
     if (obj instanceof Array) {
-      return obj.map(x => this.add(x)) as Array<IEntity | System>;
+      return <Array<IEntity | System>>obj.map(x => this.add(x));
     }
     if (obj instanceof Promise) {
       // @ts-ignore
@@ -74,7 +74,7 @@ export class Engine {
         return this.addSystemClass(obj, ...args);
       } else { // handler function
         const [ requirements ] = args;
-        return this.addHandler(obj as TSystemUpdateMethod, requirements);
+        return this.addHandler(<TSystemUpdateMethod>obj, requirements);
       }
 
     } else {
