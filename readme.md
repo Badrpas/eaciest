@@ -16,7 +16,7 @@ const entity = engine.add({
 
 // Adds new system (has to be a regular functon not an arrow one)
 engine.add(function (dt) {
-  for (const entity of this.entities) {
+  for (const entity of this.getEntities()) {
     entity.location.x += entity.velocity.x * dt;
     entity.location.y += entity.velocity.y * dt;
   }
