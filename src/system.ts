@@ -35,20 +35,42 @@ export class System {
   /**
    * Defines list(s) of entities with required components.
    * For example:
+   * ```js
    * [ 'componentName1', 'componentName2' ]
-   * results in array of entities which
-   * have componentName1 and componentName2 in them
+   * ```
    *
+   * results in array of entities which
+   * have componentName1 and componentName2 components in them
+   *
+   * ```js
    * {
    *   entityList1: [ 'componentName1', 'componentName2' ],
    *   entityList2: [ 'componentName3' ]
    * }
+   * ```
+   *
    * Such requirement will produce an object with
    * two independent lists:
+   * ```js
    * {
    *   entityList1: [entity1, entity2, ...]
    *   entityList2: [...]
    * }
+   * ```
+   *
+   * You can also pass a `function` instead of `string`/`symbol`
+   * to add custom selector logic.
+   * Be aware: runtime checks are performed only if entity was marked as changed.
+   *
+   * Passing a single value will wrap it into an array.
+   * For example:
+   * ```js
+   * 'componentName1'
+   * ```
+   * Transforms into
+   * ```js
+   * ['componentName`]
+   * ```
    */
   private _requirements: TEntityRequirements = null;
   get requirements (): TEntityRequirements {
@@ -168,8 +190,7 @@ export class System {
   update (dt?: number) {
   };
 
-  private _testFunctionCache: Map<Array<TEntityRequirementConstraint>, TEntityPredicate>
-                        = new Map<Array<TEntityRequirementConstraint>, TEntityPredicate>();
+  private _testFunctionCache = new Map<Array<TEntityRequirementConstraint>, TEntityPredicate>();
 
   private _getTestFunction (requirementList: TEntityRequirementList = []): TEntityPredicate {
     const cacheEntry = this._testFunctionCache.get(requirementList);
@@ -197,6 +218,7 @@ export class System {
 
   /**
    * Checks entity for eligibility for the system
+   * Adds or removes it from system's entity list.
    * @param entity
    */
   refreshEntityStatus = (entity: IEntity): void => {
@@ -279,6 +301,9 @@ export class System {
     return <Iterable<T>>this._entityStore;
   }
 
+  /**
+   * Convenience method for retrieving a single (first) entity
+   */
   getEntity<T extends IEntity> (collectionName?: string): T | void {
     const entities = this.getEntities<T>(collectionName);
     if (entities) {
@@ -288,7 +313,7 @@ export class System {
   }
 
   /**
-   * Used to iterate through all collections
+   * Used for iteration through all collections
    */
   *getAllEntityCollections (): Iterable<TEntitiesList> {
     if (!this._entityStore) {
@@ -301,6 +326,9 @@ export class System {
     }
   }
 
+  /**
+   * Used to determine if the system should be update by Engine
+   */
   isQualifiedForUpdate(): boolean {
     if (!this._entityStore) {
       return true; // Systems without requirements are `global`

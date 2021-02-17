@@ -2,7 +2,11 @@ import { SimplifiedSystem, System, TEntityRequirements, TSystemUpdateMethod } fr
 import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY, DELETED_PROPS } from "./entity";
 
 interface IEngineOptions {
+  // Postpones entity's affiliation to systems check
+  // to next Engine.update() call
   lazyEntityRefresh?: boolean;
+
+  // Postpones affiliation check for newly added entities
   lazyEntityAdd?: boolean;
 }
 
@@ -38,6 +42,9 @@ export class Engine {
     this.add = this.add.bind(this);
   }
 
+  /**
+   * Runs all registered systems with provided time delta value
+   */
   update = (dt: number) => {
     this._dt = dt;
 
@@ -137,6 +144,10 @@ export class Engine {
     this._entitiesToAddQueue.clear();
   }
 
+  /**
+   * Marks entity for affiliation state refresh.
+   * Performs refresh immediately or postponed when options.lazyEntityRefresh === true
+   */
   _markEntityChanged (entity: IEntity) {
     entity = getEntity(entity);
     if (this.options.lazyEntityRefresh) {
@@ -146,12 +157,15 @@ export class Engine {
     }
   }
 
-  processChangedQueue () {
+  private processChangedQueue () {
     for (const entity of this._entitiesRefreshQueue) {
       this.refreshEntity(entity);
     }
   }
 
+  /**
+   * Recalculates entity affiliation to systems
+   */
   refreshEntity = (entity: IEntity) => {
     entity = entity[PROXY];
     this._entitiesRefreshQueue.delete(entity);
