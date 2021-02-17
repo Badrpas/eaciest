@@ -286,20 +286,24 @@ describe(`update()`, () => {
 
   it(`should process refresh queue (lazyEntityRefresh === false)`, () => {
     engine = new Engine({ lazyEntityRefresh: false });
+    // @ts-ignore
     engine.processChangedQueue = jest.fn();
 
     engine.update(123);
 
+    // @ts-ignore
     expect(engine.processChangedQueue).toHaveBeenCalled();
   });
 
 
   it(`should process refresh queue (lazyEntityRefresh === true)`, () => {
     engine = new Engine({ lazyEntityRefresh: true });
+    // @ts-ignore
     engine.processChangedQueue = jest.fn();
 
     engine.update(123);
 
+    // @ts-ignore
     expect(engine.processChangedQueue).toHaveBeenCalled();
   });
 
@@ -323,6 +327,7 @@ describe(`handleChangedEntities()`, () => {
     engine.add();
     expect(entitiesRefreshQueue.size).toBe(1);
 
+    // @ts-ignore
     engine.processChangedQueue();
     expect(entitiesRefreshQueue.size).toBe(0);
   });
