@@ -2,7 +2,7 @@
   "name": "eaciest",
   "license": "MIT",
   "version": "0.1.0",
-  "description": "JavaScript ECS implementation",
+  "description": "TypeScript ECS implementation",
   "main": "dist/lib/index.js",
   "types": "dist/types/index.d.ts",
   "keywords": [
@@ -11,10 +11,16 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
+    "prepare": "tsc",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "author": "Vadim Samarin",
+  "homepage": "https://github.com/Badrpas/eaciest",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Badrpas/eaciest.git"
+  },
   "dependencies": {
     "typescript": "^3.8.3"
   },
