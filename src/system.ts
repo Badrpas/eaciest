@@ -72,13 +72,13 @@ export class System {
    * ['componentName`]
    * ```
    */
-  private _requirements: TEntityRequirements = null;
   get requirements (): TEntityRequirements {
     return this._requirements;
   }
   set requirements (value: TEntityRequirements) {
     this.setRequirements(value);
   }
+  private _requirements: TEntityRequirements = null;
 
   setRequirements (value: TEntityRequirementsCandidate) {
     if (!value) {
