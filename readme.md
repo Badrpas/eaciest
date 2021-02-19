@@ -9,19 +9,20 @@ const { Engine } = require('eaciest');
 const engine = new Engine();
 
 // Creates new entity
-const entity = engine.add({ 
+const entity = engine.addEntity({ 
   location: { x: 100, y: 200 },
   velocity: { x: 2, y: 3 },
 });
 
-// Adds new system (has to be a regular functon not an arrow one)
-engine.add(function (dt) {
+// Adds new function handler system
+engine.addHandler(function (dt) {
   for (const entity of this.getEntities()) {
     entity.location.x += entity.velocity.x * dt;
     entity.location.y += entity.velocity.y * dt;
   }
 }, ['location', 'velocity']);
 
+// Run all systems with dt === 2
 engine.update(2);
 
 console.log(entity.location); // { x: 104, y: 206 }
