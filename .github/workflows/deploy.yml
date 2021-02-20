@@ -2,12 +2,11 @@ name: Deploy
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - master
 
 jobs:
   NPM_Deploy:
-    if: github.event.base_ref == 'refs/heads/master'
     runs-on: ubuntu-latest
 
     steps:
