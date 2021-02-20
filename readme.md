@@ -2,7 +2,7 @@
 ---
 TypesScript [ECS](https://en.wikipedia.org/wiki/Entity_component_system) implementation.
 
-Minimal usage example:
+Basic usage example:
 ```js
 const { Engine } = require('eaciest');
 
@@ -20,7 +20,10 @@ engine.addHandler(function (dt) {
     entity.location.x += entity.velocity.x * dt;
     entity.location.y += entity.velocity.y * dt;
   }
-}, ['location', 'velocity']);
+}, [ // required components
+  'location',
+  'velocity'
+]);
 
 // Run all systems with dt === 2
 engine.update(2);
@@ -28,4 +31,3 @@ engine.update(2);
 console.log(entity.location); // { x: 104, y: 206 }
 
 ```
-
