@@ -1,7 +1,7 @@
 {
   "name": "eaciest",
   "license": "MIT",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TypeScript ECS implementation",
   "main": "dist/lib/index.js",
   "types": "dist/types/index.d.ts",
@@ -21,8 +21,7 @@
     "type": "git",
     "url": "git+https://github.com/Badrpas/eaciest.git"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "typescript": "^3.8.3",
     "@types/jest": "^25.1.4",
