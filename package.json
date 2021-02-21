@@ -22,9 +22,9 @@
     "url": "git+https://github.com/Badrpas/eaciest.git"
   },
   "dependencies": {
-    "typescript": "^3.8.3"
   },
   "devDependencies": {
+    "typescript": "^3.8.3",
     "@types/jest": "^25.1.4",
     "jest": "^25.2.4",
     "ts-jest": "^25.3.0"
