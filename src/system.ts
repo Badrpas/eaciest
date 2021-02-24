@@ -285,20 +285,20 @@ export class System {
     }
   }
 
-  getEntities<T extends IEntity = IEntity> (collectionName?: string): Iterable<T> {
+  getEntities<T> (collectionName?: string): Iterable<T & IEntity> {
     if (!this._requirements && this._engine) {
-      return <Iterable<T>>this._engine.entities.values();
+      return <Iterable<T & IEntity>>this._engine.entities.values();
     }
 
     if (typeof collectionName === 'string') {
       if (!System._entitiesIsList(this._requirements, this._entityStore)) {
-        return <Iterable<T>>this._entityStore[collectionName];
+        return <Iterable<T & IEntity>>this._entityStore[collectionName];
       }
 
       throw new Error(`System has a single collection.`);
     }
 
-    return <Iterable<T>>this._entityStore;
+    return <Iterable<T & IEntity>>this._entityStore;
   }
 
   /**
