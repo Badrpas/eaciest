@@ -304,7 +304,7 @@ export class System {
   /**
    * Convenience method for retrieving a single (first) entity
    */
-  getEntity<T extends IEntity> (collectionName?: string): T | void {
+  getEntity<T> (collectionName?: string): T & IEntity | void {
     const entities = this.getEntities<T>(collectionName);
     if (entities) {
       const iterator = entities[Symbol.iterator]?.();
