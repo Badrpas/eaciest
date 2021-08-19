@@ -4,19 +4,14 @@ TypesScript [ECS](https://en.wikipedia.org/wiki/Entity_component_system) impleme
 
 Basic usage example:
 ```js
-const { Engine } = require('eaciest');
+import { Engine, System } from 'eaciest';
 
 const engine = new Engine();
-
-// Creates new entity
-const entity = engine.addEntity({ 
-  location: { x: 100, y: 200 },
-  velocity: { x: 2, y: 3 },
-});
 
 // Declare a system for location updates
 class VelocitySystem extends System {
   constructor () {
+    // Specify required components (properties) to match againts entities
     super(['location', 'velocity']);
   }
   
@@ -30,6 +25,12 @@ class VelocitySystem extends System {
 
 // This will instantiate the class and register it for updates
 engine.addSystemClass(VelocitySystem);
+
+// Creates new entity
+const entity = engine.addEntity({ 
+  location: { x: 100, y: 200 },
+  velocity: { x: 2, y: 3 },
+});
 
 // Run all systems with dt === 2
 engine.update(2);
