@@ -14,16 +14,22 @@ const entity = engine.addEntity({
   velocity: { x: 2, y: 3 },
 });
 
-// Adds new function handler system
-engine.addHandler(function (dt) {
-  for (const entity of this.getEntities()) {
-    entity.location.x += entity.velocity.x * dt;
-    entity.location.y += entity.velocity.y * dt;
+// Declare a system for location updates
+class VelocitySystem extends System {
+  constructor () {
+    super(['location', 'velocity']);
   }
-}, [ // required components
-  'location',
-  'velocity'
-]);
+  
+  update (dt) {
+    for (const { location, velocity } of this.getEntities()) {
+      location.x += velocity.x * dt;
+      location.y += velocity.y * dt;
+    }
+  }
+}
+
+// This will instantiate the class and register it for updates
+engine.addSystemClass(VelocitySystem);
 
 // Run all systems with dt === 2
 engine.update(2);
