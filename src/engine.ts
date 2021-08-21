@@ -48,7 +48,7 @@ export class Engine {
   /**
    * Runs all registered systems with provided time delta value
    */
-  update = (dt: number) => {
+  update (dt: number) {
     this._dt = dt;
 
     this.processAddQueue();
@@ -56,16 +56,20 @@ export class Engine {
     this.processChangedQueue();
 
     for (const system of this._systems) {
-      if (system.enabled && system.isQualifiedForUpdate()) {
-        try {
-          system.update(this._dt);
-        } catch (err) {
-          console.error(err);
-          system.enabled = false;
-        }
-      }
+      this.updateSystem(system);
     }
   };
+
+  updateSystem (system: System) {
+    if (!system.enabled || !system.isQualifiedForUpdate()) return;
+
+    try {
+      system.update(this._dt);
+    } catch (err) {
+      console.error(err);
+      system.enabled = false;
+    }
+  }
 
   add (obj: EntityOrSystemCandidate | Array<EntityOrSystemCandidate> = {}, ...args: any[]): IEntity | System | Array<IEntity | System> {
     if (obj instanceof Array) {

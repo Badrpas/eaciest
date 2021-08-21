@@ -217,7 +217,7 @@ export class System {
    * Adds or removes it from system's entity list.
    * @param entity
    */
-  refreshEntityStatus = (entity: IEntity): void => {
+  refreshEntityStatus (entity: IEntity): void {
     const { _requirements } = this;
     if (_requirements === null) {
       return;
