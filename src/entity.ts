@@ -8,15 +8,15 @@ export const PROXY = Symbol.for('Entity Proxy');
 export const DELETED_PROPS = Symbol.for('Contains removed components (properties)');
 
 export interface IEntityProjection {
-  [key: string]: any
-  [PROXY]?: IEntity
-  [ENTITY_ID]?: number
+  [key: string]: any;
+  [PROXY]?: IEntity;
+  [ENTITY_ID]?: number;
 }
 
 export interface IEntity extends IEntityProjection {
-  [ENGINE]: Engine
-  [PROXY]: IEntity
-  [DELETED_PROPS]: Map<TPropKey, any>
+  [ENGINE]: Engine;
+  [PROXY]: IEntity;
+  [DELETED_PROPS]: Map<TPropKey, any>;
 }
 
 export type TPropKey = string | number | symbol;
@@ -25,14 +25,14 @@ const IGNORED_SYMBOLS = [ENGINE, PROXY] as const;
 
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
   set (entity: IEntity, prop: TPropKey, value: any): boolean {
+    const engine = entity[ENGINE];
     // We should trigger update when new property added
     const isIgnoredSymbol = typeof prop === 'symbol' && IGNORED_SYMBOLS.some(x => x === prop);
-    const needUpdate = !isIgnoredSymbol && !(prop in entity);
+    const needUpdate = !isIgnoredSymbol && (engine?.isWatchedProperty(prop) || !(prop in entity));
 
     Reflect.set(entity, prop, value);
 
     if (needUpdate) {
-      const engine = entity[ENGINE];
       engine?._markEntityChanged(entity);
     }
 
