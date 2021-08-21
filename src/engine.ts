@@ -1,13 +1,14 @@
-import { SimplifiedSystem, System, TEntityRequirements, TSystemUpdateMethod } from "./system";
-import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY, DELETED_PROPS } from "./entity";
+import { System, TEntityRequirements} from "./system";
+import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY, DELETED_PROPS, TPropKey } from "./entity";
+import { SimplifiedSystem, TSystemUpdateMethod } from './simplified-system';
 
 interface IEngineOptions {
   // Postpones entity's affiliation to systems check
   // to next Engine.update() call
-  lazyEntityRefresh?: boolean;
+  lazyEntityRefresh: boolean;
 
   // Postpones affiliation check for newly added entities
-  lazyEntityAdd?: boolean;
+  lazyEntityAdd: boolean;
 }
 
 type TSystemConstructor = new (...args: any[]) => System;
@@ -32,7 +33,9 @@ export class Engine {
   private _entitiesRefreshQueue: Set<IEntity> = new Set<IEntity>();
   private _entitiesToAddQueue  : Set<IEntity> = new Set<IEntity>();
 
-  constructor (options: IEngineOptions = {}) {
+  private _watchedProperties: Set<TPropKey> = new Set<TPropKey>();
+
+  constructor (options: Partial<IEngineOptions> = {}) {
     this.options = {
       lazyEntityRefresh: true,
       lazyEntityAdd    : false,
@@ -64,7 +67,7 @@ export class Engine {
     }
   };
 
-  add (obj: EntityOrSystemCandidate | Array<EntityOrSystemCandidate> = {}, ...args: any[]): IEntity | System | Array<IEntity | System > {
+  add (obj: EntityOrSystemCandidate | Array<EntityOrSystemCandidate> = {}, ...args: any[]): IEntity | System | Array<IEntity | System> {
     if (obj instanceof Array) {
       return <Array<IEntity | System>>obj.map(x => this.add(x));
     }
@@ -148,9 +151,9 @@ export class Engine {
    * Marks entity for affiliation state refresh.
    * Performs refresh immediately or postponed when options.lazyEntityRefresh === true
    */
-  _markEntityChanged (entity: IEntity) {
+  _markEntityChanged (entity: IEntity, lazy: boolean = this.options.lazyEntityRefresh) {
     entity = getEntity(entity);
-    if (this.options.lazyEntityRefresh) {
+    if (lazy) {
       this._entitiesRefreshQueue.add(entity);
     } else {
       this.refreshEntity(entity);
@@ -161,6 +164,22 @@ export class Engine {
     for (const entity of this._entitiesRefreshQueue) {
       this.refreshEntity(entity);
     }
+  }
+
+  /**
+   * Watched property will trigger _markEntityChanged() on it's value set.
+   * Warn: setting the same value also triggers the behavior
+   */
+  public addWatchedProperty(prop: TPropKey) {
+    this._watchedProperties.add(prop);
+  }
+
+  public removeWatchedProperty(prop: TPropKey) {
+    this._watchedProperties.delete(prop);
+  }
+
+  public isWatchedProperty(prop: TPropKey) {
+    return this._watchedProperties.has(prop);
   }
 
   /**
