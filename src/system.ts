@@ -142,7 +142,10 @@ export class System {
 
   private _entitiesInitialized: boolean = false;
 
-  constructor (requirements: TEntityRequirementsCandidate = null) {
+  constructor (requirements: TEntityRequirementsCandidate = null, ...tail: any[]) {
+    if (tail.length) {
+      logger.warn(`System doesn't expect multiple arguments. For multi-component query - group components in array.\nextra args:`, tail);
+    }
     if (requirements) {
       this.setRequirements(requirements);
     }
