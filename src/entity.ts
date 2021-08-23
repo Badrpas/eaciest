@@ -1,7 +1,6 @@
 import { Engine } from './engine';
 
 
-let entityIdCounter = 1;
 export const ENTITY_ID = Symbol.for('Entity ID');
 export const ENGINE = Symbol.for('Engine');
 export const PROXY = Symbol.for('Entity Proxy');
@@ -51,8 +50,7 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
 };
 
 /**
- *
- * @param candidate
+ * Ensures that entity is proxified
  */
 export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
   if (isEntity(candidate)) {
@@ -67,7 +65,6 @@ export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
   const proxy = new Proxy(entity, EntityProxyHandler);
 
   entity[PROXY] = proxy;
-  entity[ENTITY_ID] = entityIdCounter++;
   entity[DELETED_PROPS] = new Map();
 
   return proxy;

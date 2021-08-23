@@ -1,5 +1,5 @@
 import { System, TEntityRequirements} from "./system";
-import { ENGINE, IEntity, getEntity, IEntityProjection, PROXY, DELETED_PROPS, TPropKey } from "./entity";
+import { ENGINE, IEntity, getEntity, IEntityProjection, DELETED_PROPS, TPropKey, ENTITY_ID } from "./entity";
 import { SimplifiedSystem, TSystemUpdateMethod } from './simplified-system';
 
 interface IEngineOptions {
@@ -34,6 +34,9 @@ export class Engine {
   private _entitiesToAddQueue  : Set<IEntity> = new Set<IEntity>();
 
   private _watchedProperties: Set<TPropKey> = new Set<TPropKey>();
+
+  private entityIdCounter = 1;
+  protected getNextEntityID () { return this.entityIdCounter++; }
 
   constructor (options: Partial<IEngineOptions> = {}) {
     this.options = {
@@ -103,7 +106,17 @@ export class Engine {
 
     const entity: IEntity = getEntity(candidate);
 
+    if (this._entitiesStore.has(entity) || this._entitiesToAddQueue.has(entity)) {
+      return entity;
+    }
+
+    const preAssignedEngine = entity[ENGINE];
+    if (preAssignedEngine && preAssignedEngine !== this) {
+      preAssignedEngine.removeEntity(entity);
+    }
+
     entity[ENGINE] = this;
+    entity[ENTITY_ID] = this.getNextEntityID();
 
     if (this.options.lazyEntityAdd) {
       this._entitiesToAddQueue.add(entity);
@@ -189,8 +202,8 @@ export class Engine {
   /**
    * Recalculates entity affiliation to systems
    */
-  refreshEntity = (entity: IEntity) => {
-    entity = entity[PROXY];
+  refreshEntity (entity: IEntity) {
+    entity = getEntity(entity);
     this._entitiesRefreshQueue.delete(entity);
 
     for (const system of this._systems) {
@@ -200,7 +213,7 @@ export class Engine {
     if (entity[DELETED_PROPS]?.size) {
       entity[DELETED_PROPS]?.clear();
     }
-  };
+  }
 
   removeEntity (entity: IEntity) {
     entity = getEntity(entity);
