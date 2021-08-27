@@ -361,6 +361,10 @@ export class System {
   }
 
   removeEntity (entity: IEntity, collectionName?: string): boolean {
+    if (!this._entityStore) {
+      return false;
+    }
+
     // Remove from a specific collection
     if (typeof collectionName === 'string') {
       if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
