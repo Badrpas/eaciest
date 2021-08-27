@@ -186,8 +186,7 @@ export class System {
     return this._engine;
   }
 
-  update (dt?: number) {
-  };
+  update (dt?: number) {};
 
   private _testFunctionCache = new Map<Array<TEntityRequirementConstraint>, TEntityPredicate>();
 
@@ -297,7 +296,7 @@ export class System {
     }
   }
 
-  /**@virtual*/ onEntityAdded (entity: IEntity, collectionName?: string) {}
+  onEntityAdded (entity: IEntity, collectionName?: string) {}
 
   getEntities<T> (collectionName?: string): Iterable<T & IEntity> {
     if (!this._requirements && this._engine) {
@@ -341,7 +340,7 @@ export class System {
   }
 
   /**
-   * Used to determine if the system should be update by Engine
+   * Used to determine if the system should be update by Engine next tick
    */
   isQualifiedForUpdate(): boolean {
     if (!this._entityStore) {
@@ -408,7 +407,7 @@ export class System {
   /**
    * In case complete entity removal (i.e.: entity removed from Engine) collectionName is not passed
    */
-  /**@virtual*/ onEntityRemoved (entity: IEntity, deletedComponents: Map<TPropKey, any>, collectionName?: string) {
+  onEntityRemoved (entity: IEntity, deletedComponents: Map<TPropKey, any>, collectionName?: string) {
 
   }
 
