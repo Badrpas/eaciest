@@ -150,4 +150,20 @@ describe(`Entity removal from System`, () => {
 
   });
 
+  it(`should not throw an exception when system's requirements are null`, () => {
+    const engine = new Engine({
+      lazyEntityAdd: false,
+      lazyEntityRefresh: false
+    });
+
+    const system = engine.addHandler(() => {}, null);
+    const fn = system.onEntityRemoved = jest.fn();
+    const e = engine.addEntity({ zzzz: 'yyyy' });
+
+    const exec = () => engine.removeEntity(e);
+
+    expect(exec).not.toThrow(Error);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
 });
