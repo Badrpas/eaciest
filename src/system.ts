@@ -105,7 +105,7 @@ export class System {
   private _entityProxy?: TEntitiesListMap;
 
   private _initEntityProxy () {
-    if (System._entitiesIsList(this._requirements, this._entityStore)) {
+    if (System.EntitiesIsList(this._requirements, this._entityStore)) {
       // @ts-ignore
       this._entityProxy = null;
       return;
@@ -125,7 +125,7 @@ export class System {
   }
 
   public get entities(): TEntities {
-    if (System._requirementsIsList(this._requirements)) {
+    if (System.RequirementsIsList(this._requirements)) {
       return this.getEntities();
     }
 
@@ -168,7 +168,7 @@ export class System {
       return;
     }
 
-    if (!System._requirementsIsList(this._requirements)) {
+    if (!System.RequirementsIsList(this._requirements)) {
       this._entityStore = {};
       for (const key of Object.keys(this._requirements)) {
         this._entityStore[key] = new Set<IEntity>();
@@ -227,9 +227,9 @@ export class System {
     }
 
     // Single collection
-    if (System._requirementsIsList(_requirements) && System._entitiesIsList(_requirements, this._entityStore)) {
+    if (System.RequirementsIsList(_requirements) && System.EntitiesIsList(_requirements, this._entityStore)) {
 
-      if (this._isEntityMeetsRequirementList(entity, _requirements)) {
+      if (this.isEntityMeetsRequirementList(entity, _requirements)) {
         this.addEntity(entity);
       } else {
         this.removeEntity(entity);
@@ -239,13 +239,13 @@ export class System {
 
       for (const [collectionName, requirement] of Object.entries(_requirements)) {
 
-        if (!System._requirementsIsList(requirement)) {
+        if (!System.RequirementsIsList(requirement)) {
           logger.warn(`Wrong requirement "${collectionName}":`, requirement, 'in', this);
 
           continue;
         }
 
-        if (this._isEntityMeetsRequirementList(entity, requirement)) {
+        if (this.isEntityMeetsRequirementList(entity, requirement)) {
           this.addEntity(entity, collectionName);
         } else {
           this.removeEntity(entity, collectionName);
@@ -257,32 +257,47 @@ export class System {
     }
   };
 
-  private _isEntityMeetsRequirementList (entity: IEntity, requirementList: TEntityRequirementList): boolean {
+  isEntityMeetsRequirementList (entity: IEntity, requirementList: TEntityRequirementList): boolean {
     const testFunction = this._getTestFunction(requirementList);
     return testFunction?.(entity);
   }
 
-  private static _entitiesIsList (requirements: TEntityRequirements, entities: TEntityStore)
+  public static EntitiesIsList (requirements: TEntityRequirements, entities: TEntityStore)
     : entities is TEntitiesList {
-    return this._requirementsIsList(requirements);
+    return this.RequirementsIsList(requirements);
   }
 
-  private static _requirementsIsList (requirements: TEntityRequirements)
+  entitiesIsList (entities: TEntityStore) : entities is TEntitiesList {
+    return System.EntitiesIsList(this.requirements, entities);
+  }
+
+  public static RequirementsIsList (requirements: TEntityRequirements)
     : requirements is TEntityRequirementList {
     return requirements instanceof Array;
   }
 
-  addEntity (entity: IEntity, collectionName: string | null = null) {
-    if (!System._entitiesIsList(this._requirements, this._entityStore)) {
+
+  addEntity (entity: IEntity, collectionName?: string) {
+    if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
       if (typeof collectionName === 'string') {
-        this._entityStore[collectionName].add(entity);
+        const collection = this._entityStore[collectionName];
+        if (!collection.has(entity)) {
+          collection.add(entity);
+          this.onEntityAdded(entity, collectionName);
+        }
       } else {
         throw new Error('Collection name is not specified.');
       }
     } else {
-      this._entityStore.add(entity);
+      const collection = this._entityStore;
+      if (!collection.has(entity)) {
+        collection.add(entity);
+        this.onEntityAdded(entity);
+      }
     }
   }
+
+  /**@virtual*/ onEntityAdded (entity: IEntity, collectionName?: string) {}
 
   getEntities<T> (collectionName?: string): Iterable<T & IEntity> {
     if (!this._requirements && this._engine) {
@@ -290,7 +305,7 @@ export class System {
     }
 
     if (typeof collectionName === 'string') {
-      if (!System._entitiesIsList(this._requirements, this._entityStore)) {
+      if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
         return <Iterable<T & IEntity>>this._entityStore[collectionName];
       }
 
@@ -318,7 +333,7 @@ export class System {
     if (!this._entityStore) {
       return;
     }
-    if (System._entitiesIsList(this._requirements, this._entityStore)) {
+    if (System.EntitiesIsList(this._requirements, this._entityStore)) {
       yield this._entityStore;
     } else { // collection map
       yield* Object.values(this._entityStore);
@@ -333,7 +348,7 @@ export class System {
       return true; // Systems without requirements are `global`
     }
 
-    if (System._entitiesIsList(this._requirements, this._entityStore)) {
+    if (System.EntitiesIsList(this._requirements, this._entityStore)) {
       return !!this._entityStore.size;
     } else { // collection map
       for (const list of Object.values(this._entityStore)) {
@@ -346,13 +361,13 @@ export class System {
   }
 
   removeEntity (entity: IEntity, collectionName?: string): boolean {
-    // Remove one specific
+    // Remove from a specific collection
     if (typeof collectionName === 'string') {
-      if (!System._entitiesIsList(this._requirements, this._entityStore)) {
+      if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
         const store = this._entityStore[collectionName];
         if (store.has(entity)) {
           store.delete(entity);
-          this.onEntityRemoved(entity, entity[DELETED_PROPS]);
+          this.onEntityRemoved(entity, entity[DELETED_PROPS], collectionName);
           return true;
         }
         return false;
@@ -361,23 +376,39 @@ export class System {
       throw new Error('Tried to access entity list with a key but its a single collection');
     }
 
-    let wasInSystem = false;
-    // Remove from all collections
-    for (const collection of this.getAllEntityCollections()) {
-      wasInSystem = wasInSystem || collection.has(entity);
-      collection.delete(entity);
-    }
-    if (wasInSystem) {
+    // Remove from all collections otherwise
+
+    if (System.EntitiesIsList(this.requirements, this._entityStore)) {
+      if (!this._entityStore.has(entity)) return false;
+
+      this._entityStore.delete(entity);
       this.onEntityRemoved(entity, entity[DELETED_PROPS]);
+
+      return true;
     }
+
+    let wasInSystem = false;
+
+    for (const [collectionName, collection] of Object.entries(this._entityStore)) {
+      if (!collection.has(entity)) continue;
+
+      collection.delete(entity);
+      wasInSystem = true;
+      this.onEntityRemoved(entity, entity[DELETED_PROPS], collectionName);
+    }
+
     return wasInSystem;
   }
 
-  /* override */ onEntityRemoved (entity: IEntity, deletedComponents: Map<TPropKey, any>) {
+
+  /**
+   * In case complete entity removal (i.e.: entity removed from Engine) collectionName is not passed
+   */
+  /**@virtual*/ onEntityRemoved (entity: IEntity, deletedComponents: Map<TPropKey, any>, collectionName?: string) {
 
   }
 
-  getComponentFrom(entity: IEntity, key: TPropKey): any {
+  getComponentFrom (entity: IEntity, key: TPropKey): any {
     // @ts-ignore
     return entity[key] || entity[DELETED_PROPS].get(key);
   }
