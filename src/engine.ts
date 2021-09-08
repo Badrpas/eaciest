@@ -9,6 +9,9 @@ interface IEngineOptions {
 
   // Postpones affiliation check for newly added entities
   lazyEntityAdd: boolean;
+
+  // If true - setting property to undefined deletes property from the entity
+  deleteVoidProps: boolean;
 }
 
 type TSystemConstructor = new (...args: any[]) => System;
@@ -42,6 +45,7 @@ export class Engine {
     this.options = {
       lazyEntityRefresh: true,
       lazyEntityAdd    : false,
+      deleteVoidProps  : false,
       ...options
     } as const;
 

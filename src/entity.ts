@@ -25,6 +25,13 @@ const IGNORED_SYMBOLS = [ENGINE, PROXY] as const;
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
   set (entity: IEntity, prop: TPropKey, value: any): boolean {
     const engine = entity[ENGINE];
+    const voidToDelete = engine?.options.deleteVoidProps;
+    const needDelete = voidToDelete && typeof value === 'undefined';
+    if (needDelete) {
+      // @ts-ignore
+      return this.deleteProperty(entity, prop);
+    }
+
     // We should trigger update when new property added
     const isIgnoredSymbol = typeof prop === 'symbol' && IGNORED_SYMBOLS.some(x => x === prop);
     const needUpdate = !isIgnoredSymbol && (engine?.isWatchedProperty(prop) || !(prop in entity));
