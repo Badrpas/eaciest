@@ -11,7 +11,7 @@ describe('Watched property', () => {
 
     const e = engine.addEntity({ [key]: 123, });
 
-    engine.addHandler(updateFn, [selector]);
+    engine.addHandler(updateFn, {q:[selector]});
 
     engine.update(0);
 
@@ -34,7 +34,7 @@ describe('Watched property', () => {
     const engine = new Engine();
     const updateFn = jest.fn();
 
-    engine.addHandler(updateFn, [selector]);
+    engine.addHandler(updateFn, {q:[selector]});
     const e = engine.addEntity({ [key]: 123, });
 
     engine.update(0);

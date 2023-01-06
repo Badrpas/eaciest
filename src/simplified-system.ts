@@ -1,7 +1,7 @@
 import { System, TEntityRequirements } from './system';
 
-export type TSystemUpdateMethod = (dt?: number) => void;
-export const dummyUpdateMethod: TSystemUpdateMethod = (dt?: number) => {
+export type TSystemUpdateMethod = (this: System, dt: number) => void;
+export const dummyUpdateMethod: TSystemUpdateMethod = (_dt: number) => {
 };
 
 /**
@@ -16,7 +16,7 @@ export class SimplifiedSystem extends System {
     this.requirements = requirements;
   }
 
-  update = (dt?: number) => {
+  update = (dt: number) => {
     this._updateHandler(dt);
   }
 }

@@ -8,19 +8,12 @@ export type TEntityRequirementPredicate = TEntityPredicate;
 export type TEntityRequirementConstraint = string | symbol | TEntityRequirementPredicate;
 export type TEntityRequirementList = Array<TEntityRequirementConstraint>;
 
-export type TEntityRequirements = TEntityRequirementList
-  | Record<string, TEntityRequirementList>
-  | null;
-export type TEntityRequirementListCandidate = TEntityRequirementList | TEntityRequirementConstraint
-export type TEntityRequirementsCandidate = TEntityRequirementListCandidate
-  | Record<string, TEntityRequirementListCandidate>
-  | null;
+export type TEntityRequirements = Record<string, TEntityRequirementList> | null;
 
 export type TEntitiesList = Set<IEntity>;
-export type TEntitiesListMap = Record<string, TEntitiesList>;
-export type TEntityStore = TEntitiesListMap | TEntitiesList;
+export type TEntityStore = Record<string, TEntitiesList>;
 
-export type TEntities = Iterable<IEntity> | Record<string, Iterable<IEntity>>;
+export type TEntities = Record<string, Iterable<IEntity>>;
 
 export class System {
   public enabled: boolean = true;
@@ -76,21 +69,11 @@ export class System {
   }
   private _requirements: TEntityRequirements = null;
 
-  setRequirements (value: TEntityRequirementsCandidate) {
+  setRequirements (value: TEntityRequirements) {
     if (!value) {
       this._requirements = null;
       return;
     }
-    if (typeof value === 'string' || typeof value === 'symbol' || typeof value === 'function') {
-      this._requirements = [value];
-      return;
-    }
-    if (value instanceof Array) {
-      this._requirements = value;
-      return;
-    }
-
-    value = <{ [key: string]: TEntityRequirementListCandidate }>value;
 
     for (const [key, constr] of Object.entries(value)) {
       if (typeof constr === 'string' || typeof constr === 'symbol' || typeof constr === 'function') {
@@ -98,25 +81,19 @@ export class System {
       }
     }
 
-    this._requirements = <Record<string, TEntityRequirementList>>value;
+    this._requirements = value;
   }
 
   protected _entityStore!: TEntityStore;
-  private _entityProxy?: TEntitiesListMap;
+  private _entityProxy?: TEntityStore;
 
   private _initEntityProxy () {
-    if (System.EntitiesIsList(this._requirements, this._entityStore)) {
-      // @ts-ignore
-      this._entityProxy = null;
-      return;
-    } //else {
     if (!this._entityStore) {
       return;
     }
 
-
-    this._entityProxy = new Proxy<TEntitiesListMap>(this._entityStore, {
-      get: (target: TEntityStore, p: string, receiver: any): any => {
+    this._entityProxy = new Proxy<TEntityStore>(this._entityStore, {
+      get: (_target: TEntityStore, p: string, _receiver: any): any => {
         return this.getEntities(p);
       }
     });
@@ -125,24 +102,16 @@ export class System {
   }
 
   public get entities(): TEntities {
-    if (System.RequirementsIsList(this._requirements)) {
-      return this.getEntities();
-    }
-
     if (!this._entityProxy) {
       this._initEntityProxy();
     }
 
-    if (this._entityProxy) {
-      return this._entityProxy;
-    }
-
-    return [];
+    return this._entityProxy!;
   }
 
   private _entitiesInitialized: boolean = false;
 
-  constructor (requirements: TEntityRequirementsCandidate = null, ...tail: any[]) {
+  constructor (requirements: TEntityRequirements = null, ...tail: any[]) {
     if (tail.length) {
       logger.warn(`System doesn't expect multiple arguments. For multi-component query - group components in array.\nextra args:`, tail);
     }
@@ -168,13 +137,9 @@ export class System {
       return;
     }
 
-    if (!System.RequirementsIsList(this._requirements)) {
-      this._entityStore = {};
-      for (const key of Object.keys(this._requirements)) {
-        this._entityStore[key] = new Set<IEntity>();
-      }
-    } else {
-      this._entityStore = new Set<IEntity>();
+    this._entityStore = {};
+    for (const key of Object.keys(this._requirements)) {
+      this._entityStore[key] = new Set<IEntity>();
     }
   }
 
@@ -225,34 +190,12 @@ export class System {
       return;
     }
 
-    // Single collection
-    if (System.RequirementsIsList(_requirements) && System.EntitiesIsList(_requirements, this._entityStore)) {
-
-      if (this.isEntityMeetsRequirementList(entity, _requirements)) {
-        this.addEntity(entity);
+    for (const [collectionName, requirement] of Object.entries(_requirements)) {
+      if (this.isEntityMeetsRequirementList(entity, requirement)) {
+        this.addEntity(entity, collectionName);
       } else {
-        this.removeEntity(entity);
+        this.removeEntity(entity, collectionName);
       }
-
-    } else if (typeof _requirements === 'object') { // Collections map
-
-      for (const [collectionName, requirement] of Object.entries(_requirements)) {
-
-        if (!System.RequirementsIsList(requirement)) {
-          logger.warn(`Wrong requirement "${collectionName}":`, requirement, 'in', this);
-
-          continue;
-        }
-
-        if (this.isEntityMeetsRequirementList(entity, requirement)) {
-          this.addEntity(entity, collectionName);
-        } else {
-          this.removeEntity(entity, collectionName);
-        }
-
-      }
-    } else {
-      throw new Error(`Incorrect requirements type. Expected Array or Object got ${typeof _requirements}`);
     }
   };
 
@@ -261,57 +204,30 @@ export class System {
     return testFunction?.(entity);
   }
 
-  public static EntitiesIsList (requirements: TEntityRequirements, entities: TEntityStore)
-    : entities is TEntitiesList {
-    return this.RequirementsIsList(requirements);
-  }
-
-  entitiesIsList (entities: TEntityStore) : entities is TEntitiesList {
-    return System.EntitiesIsList(this.requirements, entities);
-  }
-
-  public static RequirementsIsList (requirements: TEntityRequirements)
-    : requirements is TEntityRequirementList {
-    return requirements instanceof Array;
-  }
-
-
   addEntity (entity: IEntity, collectionName?: string) {
-    if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
-      if (typeof collectionName === 'string') {
-        const collection = this._entityStore[collectionName];
-        if (!collection.has(entity)) {
-          collection.add(entity);
-          this.onEntityAdded(entity, collectionName);
-        }
-      } else {
-        throw new Error('Collection name is not specified.');
-      }
-    } else {
-      const collection = this._entityStore;
+    if (typeof collectionName === 'string') {
+      const collection = this._entityStore[collectionName];
       if (!collection.has(entity)) {
         collection.add(entity);
-        this.onEntityAdded(entity);
+        this.onEntityAdded(entity, collectionName);
       }
+    } else {
+      throw new Error('Collection name is not specified.');
     }
   }
 
-  onEntityAdded (entity: IEntity, collectionName?: string) {}
+  onEntityAdded (entity: IEntity, collectionName: string) {}
 
-  getEntities<T> (collectionName?: string): Iterable<T & IEntity> {
+  getEntities<T> (collectionName = 'default'): Iterable<T & IEntity> {
     if (!this._requirements && this._engine) {
       return <Iterable<T & IEntity>>this._engine.entities.values();
     }
 
-    if (typeof collectionName === 'string') {
-      if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
-        return <Iterable<T & IEntity>>this._entityStore[collectionName];
-      }
-
-      throw new Error(`System has a single collection.`);
+    if (typeof this._entityStore[collectionName] != undefined) {
+      return <Iterable<T & IEntity>>this._entityStore[collectionName];
     }
 
-    return <Iterable<T & IEntity>>this._entityStore;
+    throw new Error(`Couldn't get entity collection "${collectionName}"`);
   }
 
   /**
@@ -332,11 +248,7 @@ export class System {
     if (!this._entityStore) {
       return;
     }
-    if (System.EntitiesIsList(this._requirements, this._entityStore)) {
-      yield this._entityStore;
-    } else { // collection map
-      yield* Object.values(this._entityStore);
-    }
+    yield* Object.values(this._entityStore);
   }
 
   /**
@@ -347,16 +259,12 @@ export class System {
       return true; // Systems without requirements are `global`
     }
 
-    if (System.EntitiesIsList(this._requirements, this._entityStore)) {
-      return !!this._entityStore.size;
-    } else { // collection map
-      for (const list of Object.values(this._entityStore)) {
-        if (list.size) {
-          return true;
-        }
+    for (const list of Object.values(this._entityStore)) {
+      if (list.size) {
+        return true;
       }
-      return false;
     }
+    return false;
   }
 
   removeEntity (entity: IEntity, collectionName?: string): boolean {
@@ -366,29 +274,16 @@ export class System {
 
     // Remove from a specific collection
     if (typeof collectionName === 'string') {
-      if (!System.EntitiesIsList(this._requirements, this._entityStore)) {
-        const store = this._entityStore[collectionName];
-        if (store.has(entity)) {
-          store.delete(entity);
-          this.onEntityRemoved(entity, entity[DELETED_PROPS], collectionName);
-          return true;
-        }
-        return false;
+      const store = this._entityStore[collectionName];
+      if (store.has(entity)) {
+        store.delete(entity);
+        this.onEntityRemoved(entity, entity[DELETED_PROPS], collectionName);
+        return true;
       }
-
-      throw new Error('Tried to access entity list with a key but its a single collection');
+      return false;
     }
 
     // Remove from all collections otherwise
-
-    if (System.EntitiesIsList(this.requirements, this._entityStore)) {
-      if (!this._entityStore.has(entity)) return false;
-
-      this._entityStore.delete(entity);
-      this.onEntityRemoved(entity, entity[DELETED_PROPS]);
-
-      return true;
-    }
 
     let wasInSystem = false;
 
@@ -415,6 +310,7 @@ export class System {
     // @ts-ignore
     return entity[key] || entity[DELETED_PROPS].get(key);
   }
+
 }
 
 export const isSystem = (system: any): system is System => {

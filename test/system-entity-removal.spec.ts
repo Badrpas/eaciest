@@ -3,10 +3,7 @@ import { Engine, IEntity, System } from '../src';
 
 describe(`Entity removal from System`, () => {
   const get_entities_list = (system: System): Set<IEntity> => {
-    if (System.RequirementsIsList(system.requirements)) {
-      return system.getEntities() as Set<IEntity>;
-    }
-    throw new Error('Not a list of entities');
+    return system.getEntities('default') as Set<IEntity>;
   };
   const get_collection = (system: System, collectionName: string) => {
     return system.getEntities(collectionName) as Set<IEntity>;
@@ -18,7 +15,7 @@ describe(`Entity removal from System`, () => {
       lazyEntityRefresh: false
     });
 
-    const system = engine.addHandler(() => {}, ['foo']);
+    const system = engine.addHandler(() => {}, { 'default': ['foo'] });
     const e = engine.addEntity({ foo: 'foo' });
 
     expect(get_entities_list(system).has(e)).toBe(true);
@@ -57,7 +54,7 @@ describe(`Entity removal from System`, () => {
       lazyEntityRefresh: false
     });
 
-    const system = engine.addHandler(() => {}, ['foo']);
+    const system = engine.addHandler(() => {}, {default:['foo']});
     const e = engine.addEntity({ foo: 'foo' });
 
     expect(get_entities_list(system).has(e)).toBe(true);
@@ -94,7 +91,7 @@ describe(`Entity removal from System`, () => {
         lazyEntityRefresh: false
       });
 
-      const system = engine.addHandler(() => {}, ['foo']);
+      const system = engine.addHandler(() => {}, {default:['foo']});
       const fn = system.onEntityRemoved = jest.fn();
       const e = engine.addEntity({ foo: 123 });
 
@@ -104,7 +101,7 @@ describe(`Entity removal from System`, () => {
 
       delete e.foo;
       expect(entities.size).toBe(0);
-      expect(fn).toHaveBeenCalledWith(e, expect.any(Map));
+      expect(fn).toHaveBeenCalledWith(e, expect.any(Map), 'default');
     });
 
     it(`should fire for each collection which had it`, () => {
@@ -139,7 +136,7 @@ describe(`Entity removal from System`, () => {
         lazyEntityRefresh: false
       });
 
-      const system = engine.addHandler(() => {}, ['abc']);
+      const system = engine.addHandler(() => {}, {default:['abc']});
       const fn = system.onEntityRemoved = jest.fn();
 
       const e = engine.addEntity({ zzzz: 'yyyy' });
