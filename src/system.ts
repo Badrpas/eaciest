@@ -15,7 +15,7 @@ export type TEntityStore = Record<string, TEntitiesList>;
 
 export type TEntities = Record<string, Iterable<IEntity>>;
 
-export class System<T extends {[key: string]: any}> {
+export class System {
   public enabled: boolean = true;
   private _engine!: Engine;
 
