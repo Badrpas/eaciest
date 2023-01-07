@@ -15,7 +15,7 @@ export type TEntityStore = Record<string, TEntitiesList>;
 
 export type TEntities = Record<string, Iterable<IEntity>>;
 
-export class System {
+export class System<T extends {[key: string]: any}> {
   public enabled: boolean = true;
   private _engine!: Engine;
 
@@ -151,7 +151,7 @@ export class System {
     return this._engine;
   }
 
-  update (dt?: number) {};
+  update (dt: number) {};
 
   private _testFunctionCache = new Map<Array<TEntityRequirementConstraint>, TEntityPredicate>();
 
