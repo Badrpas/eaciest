@@ -4,7 +4,6 @@ import {
   IEntity,
   System,
   ENGINE,
-  PROXY,
   IEntityProjection,
   isSystem,
   SimplifiedSystem, TEntitiesList,
@@ -27,7 +26,7 @@ const omitEntitySymbols = (entity: IEntity | IEntityProjection): IEntityProjecti
 describe(`add()`, () => {
 
   it(`should accept no arguments`, () => {
-    const entity = engine.add();
+    const entity = engine.addEntity();
 
     expect(isEntity(entity)).toBe(true);
     expect(omitEntitySymbols(entity)).toEqual({});
@@ -35,7 +34,7 @@ describe(`add()`, () => {
 
   it(`should accept plain object`, () => {
     const initialProps = { componentName: 123 };
-    const entity = engine.add(initialProps);
+    const entity = engine.addEntity(initialProps);
 
     expect(isEntity(entity)).toBe(true);
     expect(isEntity(initialProps)).toBe(false);
@@ -46,7 +45,7 @@ describe(`add()`, () => {
 
   it(`should accept class instance`, () => {
     class CustomSystem extends System {}
-    const system = engine.add(new CustomSystem());
+    const system = engine.addSystem(new CustomSystem());
 
     expect(system).toBeInstanceOf(System);
     expect(system).toBeInstanceOf(CustomSystem);
@@ -54,17 +53,13 @@ describe(`add()`, () => {
 
   it(`should not add external class as system`, () => {
     class CustomSystem {}
-    const result = engine.add(new CustomSystem());
 
-    expect(isSystem(result)).not.toBe(true);
-    expect(result).toBeInstanceOf(CustomSystem);
-
-    expect(isEntity(result)).toBe(true);
+    expect(() => engine.addSystem(new CustomSystem() as System)).toThrow(`Provided class instance doesn't inherit System`);
   });
 
   it(`should accept class`, () => {
     class CustomSystem extends System {}
-    const system = engine.add(CustomSystem);
+    const system = engine.addSystemClass(CustomSystem);
 
     expect(system).toBeInstanceOf(System);
     expect(system).toBeInstanceOf(CustomSystem);
@@ -76,7 +71,7 @@ describe(`add()`, () => {
         super();
       }
     }
-    const system = engine.add(CustomSystem, 123, 456);
+    const system = engine.addSystemClass(CustomSystem, 123, 456);
 
     expect(system).toBeInstanceOf(System);
     expect(system).toBeInstanceOf(CustomSystem);
@@ -85,7 +80,7 @@ describe(`add()`, () => {
 
   it(`should accept handler function`, () => {
     const handler = jest.fn();
-    const system = engine.add(handler);
+    const system = engine.addHandler(handler);
 
     expect(isSystem(system)).toBe(true);
     expect(system).toBeInstanceOf(SimplifiedSystem);
@@ -93,7 +88,7 @@ describe(`add()`, () => {
 
   it(`should call handler function with correct arguments and context`, () => {
     const handler = jest.fn().mockReturnThis();
-    const system = <System>engine.add(handler);
+    const system = <System>engine.addHandler(handler);
 
     system.update(123);
     expect(handler).toHaveBeenCalledWith(123);
@@ -102,15 +97,15 @@ describe(`add()`, () => {
 
   it(`should accept handler function and requirements`, () => {
     const handler = jest.fn();
-    const requirements = ['someComponent'];
-    const system = <System>engine.add(handler, requirements);
+    const requirements = {q:['someComponent']};
+    const system = <System>engine.addHandler(handler, requirements);
 
     expect(isSystem(system)).toBe(true);
     expect(system.requirements).toEqual(requirements);
   });
 
   it(`created system should have a pointer to engine`, () => {
-    const system = engine.add(() => {});
+    const system = engine.addHandler(() => {});
 
     expect(isSystem(system)).toBe(true);
     expect((<any>system)._engine).toBe(engine);
@@ -220,7 +215,7 @@ describe(`markEntityChanged()`, () => {
 describe(`refreshEntity()`, () => {
   it(`should run refreshEntity() over all systems`, () => {
     engine = new Engine({ lazyEntityRefresh: true });
-    const system = engine.add(() => {}) as System;
+    const system = engine.addHandler(() => {}) as System;
     system.refreshEntityStatus = jest.fn();
 
     const entity = engine.addEntity(); // add new entity to refresh queue
@@ -244,7 +239,7 @@ describe(`refreshEntity()`, () => {
 
 describe(`removeEntity`, () => {
   it(`should remove element from store`, () => {
-    const entity = engine.add({ component: true }) as IEntity;
+    const entity = engine.addEntity({ component: true }) as IEntity;
     expect((engine as any)._entitiesStore.size).toBe(1);
 
     engine.removeEntity(entity);
@@ -253,10 +248,10 @@ describe(`removeEntity`, () => {
   });
 
   it(`should remove entity from all systems`, () => {
-    const system = engine.add(() => {}, [ 'component' ]) as System;
-    const systemEntities = (system as any).entities as TEntitiesList;
+    const system = engine.addHandler(() => {}, { default: [ 'component' ]}) as System;
+    const systemEntities = (system as any).entities.default as TEntitiesList;
 
-    const entity = engine.addEntity({ component: true });
+    const entity = engine.addEntity({ component: true }, true);
     expect(systemEntities.size).toBe(0);
 
     engine.refreshEntity(entity);
@@ -274,9 +269,9 @@ describe(`update()`, () => {
       update = jest.fn();
     }
 
-    const system1 = engine.add(MockSystem) as System;
+    const system1 = engine.addSystemClass(MockSystem) as System;
     system1.enabled = false;
-    const system2 = engine.add(MockSystem) as System;
+    const system2 = engine.addSystemClass(MockSystem) as System;
 
     engine.update(123);
 
@@ -324,7 +319,7 @@ describe(`handleChangedEntities()`, () => {
 
     expect(entitiesRefreshQueue.size).toBe(0);
 
-    engine.add();
+    engine.addEntity();
     expect(entitiesRefreshQueue.size).toBe(1);
 
     // @ts-ignore
@@ -340,7 +335,7 @@ describe(`processAddQueue()`, () => {
 
     expect(entitiesAddQueue.size).toBe(0);
 
-    engine.add({});
+    engine.addEntity({});
     expect(entitiesAddQueue.size).toBe(1);
 
     engine.processAddQueue();

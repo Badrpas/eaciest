@@ -5,7 +5,7 @@ describe(`Engine.addHandler()`, () => {
   it(`Should create new system from a handler function`, () => {
     const engine = new Engine();
 
-    const system = engine.addHandler(() => {}, []);
+    const system = engine.addHandler(() => {});
 
     expect(isSystem(system)).toBe(true);
   });
@@ -19,8 +19,8 @@ describe(`Engine.addHandler()`, () => {
     const e1 = engine.addEntity({});
     const e2 = engine.addEntity({});
 
-    const system = engine.addHandler(() => {}, ['a', 'b']);
-    const entities = system.entities as Set<IEntity>;
+    const system = engine.addHandler(() => {}, {d:['a', 'b']});
+    const entities = <Set<any>>system.entities.d;
 
     expect(entities.size).toBe(0);
 

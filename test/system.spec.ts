@@ -8,7 +8,7 @@ describe(`System`, () => {
 
   describe(`constructor`, () => {
     it(`should assign requirements from argument`, () => {
-      const requirements = [ 'qwe' ];
+      const requirements = {q:[ 'qwe' ]};
 
       const system = new System(requirements);
 
@@ -22,10 +22,10 @@ describe(`System`, () => {
       const CollectionType = Set;
 
       it(`should be initialized to collection`, () => {
-        const system = new System([ 'qwe' ]);
+        const system = new System({q:[ 'qwe' ]});
         system.initialize();
 
-        expect((system as any)._entityStore).toBeInstanceOf(CollectionType);
+        expect((system as any)._entityStore.q).toBeInstanceOf(CollectionType);
       });
 
       it(`should be initialized to collections map`, () => {
@@ -41,11 +41,11 @@ describe(`System`, () => {
       it(`should be empty`, () => {
         let system = new System(null);
         system.initialize();
-        expect((system as any).entities).toEqual([]);
+        expect((system as any).entities).toBeUndefined();
 
         system = new System();
         system.initialize();
-        expect((system as any).entities).toEqual([]);
+        expect((system as any).entities).toBeUndefined();
       });
     });
 

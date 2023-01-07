@@ -15,7 +15,6 @@ interface IEngineOptions {
 }
 
 type TSystemConstructor = new (...args: any[]) => System;
-type EntityOrSystemCandidate = IEntityProjection | IEntity | System | TSystemConstructor | TSystemUpdateMethod;
 
 
 export class Engine {
@@ -48,8 +47,6 @@ export class Engine {
       deleteVoidProps  : false,
       ...options
     } as const;
-
-    this.add = this.add.bind(this);
   }
 
   /**
@@ -78,32 +75,11 @@ export class Engine {
     }
   }
 
-  add (obj: EntityOrSystemCandidate | Array<EntityOrSystemCandidate> = {}, ...args: any[]): IEntity | System | Array<IEntity | System> {
-    if (obj instanceof Array) {
-      return <Array<IEntity | System>>obj.map(x => this.add(x));
-    }
-    if (obj instanceof Promise) {
-      // @ts-ignore
-      return obj.then(x => this.add(x));
-    }
 
-    if (obj instanceof System) {
-      return this.addSystem(obj);
-    } else if (typeof obj === 'function') {
-
-      if (Engine.isSystemConstructor(obj)) {
-        return this.addSystemClass(obj, ...args);
-      } else { // handler function
-        const [ requirements ] = args;
-        return this.addHandler(<TSystemUpdateMethod>obj, requirements);
-      }
-
-    } else {
-      return this.addEntity(obj);
-    }
-  }
-
-  addEntity (candidate?: IEntity | IEntityProjection | null): IEntity {
+  addEntity (
+    candidate?: IEntity | IEntityProjection | null,
+    lazy = this.options.lazyEntityAdd,
+  ): IEntity {
     if (!candidate) {
       candidate = {};
     }
@@ -122,7 +98,7 @@ export class Engine {
     entity[ENGINE] = this;
     entity[ENTITY_ID] = this.getNextEntityID();
 
-    if (this.options.lazyEntityAdd) {
+    if (lazy) {
       this._entitiesToAddQueue.add(entity);
     } else {
       this._entitiesStore.add(entity);
@@ -132,17 +108,23 @@ export class Engine {
     return entity;
   }
 
-  addHandler (updateFn: TSystemUpdateMethod, requirements: TEntityRequirements) {
+  addHandler (updateFn: TSystemUpdateMethod, requirements: TEntityRequirements = null) {
     const system: System = new SimplifiedSystem(updateFn, requirements);
 
     return this.addSystem(system);
   }
 
   addSystemClass (Class: TSystemConstructor, ...args: any[]) {
+    if (!Engine.isSystemConstructor(Class)) {
+      throw new Error(`Provided class doesn't inherit System`);
+    }
     return this.addSystem(new Class(...args));
   }
 
   addSystem<T extends System> (system: T): System {
+    if (!Engine.isSystemConstructor(system.constructor)) {
+      throw new Error(`Provided class instance doesn't inherit System`);
+    }
     system.setEngine(this);
     system.initialize();
 
@@ -238,8 +220,8 @@ export class Engine {
     this._systems.splice(index, 1);
   }
 
-  private static isSystemConstructor (fn: Function | TSystemConstructor | TSystemUpdateMethod)
+  private static isSystemConstructor (fn: Function | TSystemConstructor)
     : fn is TSystemConstructor {
-    return fn.prototype instanceof System;
+    return fn === System || fn.prototype instanceof System;
   }
 }

@@ -12,7 +12,7 @@ describe(`Entity prop deletion`, () => {
       });
 
       const handler = jest.fn();
-      const sys = engine.addHandler(handler, ['foo']);
+      const sys = engine.addHandler(handler, {q:['foo']});
       const e = engine.addEntity({ foo: 'bar' });
 
       engine.update(123);
