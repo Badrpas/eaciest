@@ -29,7 +29,7 @@ class VelocitySystem extends System {
 // Instantiate the class and register it for updates
 engine.addSystemClass(VelocitySystem);
 
-// Create new entity
+// Create new entity with two components
 const entity = engine.addEntity({ 
   location: { x: 100, y: 200 },
   velocity: { x: 2, y: 3 },
