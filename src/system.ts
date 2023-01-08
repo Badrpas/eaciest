@@ -2,7 +2,12 @@ import { DELETED_PROPS, IEntity, TPropKey } from "./entity";
 import { Engine } from "./engine";
 import { logger } from './auxiliary';
 
-export type TEntityPredicate = (entity: IEntity) => boolean;
+export const PREDICATE_META = Symbol.for('Predicate setup meta function');
+
+export interface TEntityPredicate {
+  (entity: IEntity): boolean;
+  [PREDICATE_META]?: (system: System) => TEntityPredicate;
+}
 
 export type TEntityRequirementPredicate = TEntityPredicate;
 export type TEntityRequirementConstraint = string | symbol | TEntityRequirementPredicate;
@@ -166,6 +171,8 @@ export class System {
       if (typeof predicate === 'string' || typeof predicate === 'symbol') {
         return (entity: IEntity) => predicate in entity;
       } else if (typeof predicate === 'function') {
+        const override = predicate[PREDICATE_META]?.(this);
+        if (override) return override;
         return predicate;
       }
     }).filter((x): x is TEntityRequirementPredicate => !!x);
