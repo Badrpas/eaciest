@@ -2,10 +2,13 @@ import { Engine } from './engine';
 
 
 export const ENTITY_ID = Symbol.for('Entity ID');
+// Use to bypass proxy for easier debugging in dev tools
+export const SRC_OBJECT = Symbol.for('SOURCE OBJECT');
 export const ENGINE = Symbol.for('Engine');
 export const PROXY = Symbol.for('Entity Proxy');
-export const DELETED_PROPS = Symbol.for('Contains removed components (properties)');
-export const CHANGED_PROPS = Symbol.for('Contains changed components');
+export const ADDED_PROPS = Symbol.for('Array of newly added components (properties)');
+export const CHANGED_PROPS = Symbol.for('Map of changed components previous value');
+export const DELETED_PROPS = Symbol.for('Map of removed components (properties)');
 
 export interface IEntityProjection {
   [key: string]: any;
@@ -16,13 +19,15 @@ export interface IEntityProjection {
 export interface IEntity extends IEntityProjection {
   [ENGINE]: Engine;
   [PROXY]: IEntity;
+  [SRC_OBJECT]?: IEntityProjection;
+  [ADDED_PROPS]?: TPropKey[];
+  [CHANGED_PROPS]?: Map<TPropKey, any>;
   [DELETED_PROPS]: Map<TPropKey, any>;
-  [CHANGED_PROPS]: Map<TPropKey, any>;
 }
 
 export type TPropKey = string | number | symbol;
 
-const IGNORED_SYMBOLS = [ENGINE, PROXY] as const;
+const IGNORED_SYMBOLS = [ENGINE, PROXY, SRC_OBJECT] as const;
 
 export const EntityProxyHandler: ProxyHandler<IEntity> = {
   set (entity: IEntity, prop: TPropKey, value: any): boolean {
@@ -36,9 +41,15 @@ export const EntityProxyHandler: ProxyHandler<IEntity> = {
 
     // We should trigger update when new property added
     const isIgnoredSymbol = typeof prop === 'symbol' && IGNORED_SYMBOLS.some(x => x === prop);
-    const needUpdate = !isIgnoredSymbol && (engine?.isWatchedProperty(prop) || !(prop in entity));
+    const isNewProp = !(prop in entity);
+    const needUpdate = !isIgnoredSymbol && (isNewProp || engine?.isWatchedProperty(prop));
+    if (!isIgnoredSymbol && isNewProp) {
+      const addedPropsList = entity[ADDED_PROPS] ||= [];
+      addedPropsList.push(prop);
+    }
     if (needUpdate) {
-      Reflect.set(entity, CHANGED_PROPS, value);
+      const changedPropsMap = entity[CHANGED_PROPS] ||= new Map;
+      changedPropsMap.set(prop, Reflect.get(entity, prop));
     }
 
     Reflect.set(entity, prop, value);
@@ -78,6 +89,7 @@ export const getEntity = (candidate: IEntity | IEntityProjection): IEntity => {
 
   entity[PROXY] = proxy;
   entity[DELETED_PROPS] = new Map();
+  entity[ADDED_PROPS] = Object.keys(candidate);
 
   return proxy;
 };

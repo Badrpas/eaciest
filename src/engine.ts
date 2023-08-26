@@ -1,5 +1,5 @@
 import { System, TEntityRequirements} from "./system";
-import { ENGINE, IEntity, getEntity, IEntityProjection, DELETED_PROPS, TPropKey, ENTITY_ID } from "./entity";
+import { ENGINE, IEntity, getEntity, IEntityProjection, DELETED_PROPS, TPropKey, ENTITY_ID, SRC_OBJECT, isEntity } from "./entity";
 import { SimplifiedSystem, TSystemUpdateMethod } from './simplified-system';
 
 interface IEngineOptions {
@@ -12,6 +12,8 @@ interface IEngineOptions {
 
   // If true - setting property to undefined deletes property from the entity
   deleteVoidProps: boolean;
+
+  provideSrcObjectRef: boolean;
 }
 
 type TSystemConstructor = new (...args: any[]) => System;
@@ -32,6 +34,11 @@ export class Engine {
     return this._dt;
   }
 
+  private _lastUpdateAt: Date = new Date(0);
+  get lastUpdate(): Date {
+    return this._lastUpdateAt;
+  }
+
   private _entitiesRefreshQueue: Set<IEntity> = new Set<IEntity>();
   private _entitiesToAddQueue  : Set<IEntity> = new Set<IEntity>();
 
@@ -45,6 +52,7 @@ export class Engine {
       lazyEntityRefresh: true,
       lazyEntityAdd    : false,
       deleteVoidProps  : false,
+      provideSrcObjectRef: false,
       ...options
     } as const;
   }
@@ -53,6 +61,7 @@ export class Engine {
    * Runs all registered systems with provided time delta value
    */
   update (dt: number) {
+    this._lastUpdateAt = new Date;
     this._dt = dt;
 
     this.processAddQueue();
@@ -95,6 +104,10 @@ export class Engine {
       preAssignedEngine.removeEntity(entity);
     }
 
+    if (this.options.provideSrcObjectRef && !isEntity(candidate)) {
+      entity[SRC_OBJECT] = candidate;
+    }
+
     entity[ENGINE] = this;
     entity[ENTITY_ID] = this.getNextEntityID();
 
@@ -124,6 +137,9 @@ export class Engine {
   addSystem<T extends System> (system: T): System {
     if (!Engine.isSystemConstructor(system.constructor)) {
       throw new Error(`Provided class instance doesn't inherit System`);
+    }
+    if (this._systems.includes(system)) {
+      throw new Error(`Provided system (${system.constructor.name}) instance already registered`);
     }
     system.setEngine(this);
     system.initialize();
@@ -208,6 +224,7 @@ export class Engine {
     this._entitiesRefreshQueue.delete(entity);
     this._entitiesToAddQueue.delete(entity);
 
+    // @ts-ignore
     delete entity[ENGINE];
 
     for (const system of this._systems) {

@@ -1,13 +1,12 @@
 {
   "compilerOptions": {
-    "sourceRoot": "src",
     "outDir": "dist/lib",
     "declaration": true,
     "declarationDir": "dist/types",
     "target": "ES2019",
     "strict": true,
     "allowJs": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": false,

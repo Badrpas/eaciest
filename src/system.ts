@@ -2,11 +2,14 @@ import { DELETED_PROPS, IEntity, TPropKey } from "./entity";
 import { Engine } from "./engine";
 import { logger } from './auxiliary';
 
+/// Runs once a system collection query function is created
+/// If this returns a value - it is overrides the function itself
 export const PREDICATE_META = Symbol.for('Predicate setup meta function');
 
+export type PredicateMetaFn = (system: System, predicate: TEntityPredicate) => TEntityPredicate|void;
 export interface TEntityPredicate {
   (entity: IEntity): boolean;
-  [PREDICATE_META]?: (system: System) => TEntityPredicate;
+  [PREDICATE_META]?: PredicateMetaFn;
 }
 
 export type TEntityRequirementPredicate = TEntityPredicate;
@@ -24,6 +27,10 @@ export class System {
   public enabled: boolean = true;
   private _engine!: Engine;
 
+  /**
+   * The higher this value - the latter the system is executed.
+   * Do not use Infinity as this may lead to unexpected behavior.
+   **/
   public priority = 5;
 
   /**
@@ -166,13 +173,13 @@ export class System {
     if (cacheEntry) {
       return cacheEntry;
     }
-
-    const tests = requirementList.map(predicate => {
+    const self = this;
+    const tests = requirementList.map(function convert(predicate): TEntityRequirementPredicate|void {
       if (typeof predicate === 'string' || typeof predicate === 'symbol') {
         return (entity: IEntity) => predicate in entity;
       } else if (typeof predicate === 'function') {
-        const override = predicate[PREDICATE_META]?.(this);
-        if (override) return override;
+        const override = predicate[PREDICATE_META]?.(self, predicate);
+        if (override) return convert(override);
         return predicate;
       }
     }).filter((x): x is TEntityRequirementPredicate => !!x);
@@ -307,7 +314,8 @@ export class System {
 
 
   /**
-   * In case complete entity removal (i.e.: entity removed from Engine) collectionName is not passed
+   * Called when entity removed either because of requirements are not met anymore or the entity is removed from engine.
+   * In case complete entity removal from Engine collectionName is not passed.
    */
   onEntityRemoved (entity: IEntity, deletedComponents: Map<TPropKey, any>, collectionName?: string) {
 

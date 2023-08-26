@@ -1,7 +1,8 @@
-import { IEntity, CHANGED_PROPS } from './entity';
+import { Engine } from './engine';
+import { IEntity, CHANGED_PROPS, ADDED_PROPS, DELETED_PROPS, TPropKey, ENGINE } from './entity';
 import { TEntityPredicate, PREDICATE_META, System } from './system';
 
-type PredicateCandidate = string|TEntityPredicate;
+type PredicateCandidate = string | TEntityPredicate;
 const component_to_predicate = (c: PredicateCandidate): TEntityPredicate => {
   if (typeof c === 'function') {
     return c;
@@ -43,16 +44,132 @@ export const and = (...components: PredicateCandidate[]) => {
   return (entity: IEntity) => predicates.every(p => p(entity));
 };
 
-export const on_changed = (...props: string[]) => {
+/** Matches when one of the props is added to entity **/
+export const once_added = (...props: string[]) => {
   return Object.assign((e: IEntity) => {
-    return props.some(prop => e[CHANGED_PROPS].has(prop));
+    return props.some(prop => e[ADDED_PROPS]?.includes(prop));
   }, {
     [PREDICATE_META]: (system: System) => {
       const engine = system.getEngine();
       for (const prop of props) {
         engine.addWatchedProperty(prop);
       }
+      add_cleanup(engine, ReactiveCleanupSystem);
     },
   });
 };
+
+/** Matches when one of the props is changed on entity **/
+export const once_changed = (...props: string[]) => {
+  return Object.assign((e: IEntity) => {
+    return props.some(prop => e[CHANGED_PROPS]?.has(prop) && e[prop] !== e[CHANGED_PROPS].get(prop));
+  }, {
+    [PREDICATE_META]: (system: System) => {
+      const engine = system.getEngine();
+      for (const prop of props) {
+        engine.addWatchedProperty(prop);
+      }
+      add_cleanup(engine, ReactiveCleanupSystem);
+    },
+  });
+};
+
+/** Matches when one of the props is assigned on entity **/
+export const once_assigned = (...props: string[]) => {
+  return Object.assign((e: IEntity) => {
+    return props.some(prop => e[CHANGED_PROPS]?.has(prop))
+  }, {
+    [PREDICATE_META]: (system: System) => {
+      const engine = system.getEngine();
+      for (const prop of props) {
+        engine.addWatchedProperty(prop);
+      }
+      add_cleanup(engine, ReactiveCleanupSystem);
+    },
+  });
+};
+
+/** Matches when one of the props is `delete`d from entity **/
+export const once_deleted = (...props: string[]) => {
+  return Object.assign((e: IEntity) => {
+    return props.some(prop => e[DELETED_PROPS]?.has(prop));
+  }, {
+    [PREDICATE_META]: (system: System) => {
+      const engine = system.getEngine();
+      for (const prop of props) {
+        engine.addWatchedProperty(prop);
+      }
+      engine.addSystem(new DeletionCleanupSystem(props));
+    },
+  });
+};
+
+class DeletionCleanupSystem extends System {
+  public priority: number = Infinity;
+
+  constructor (private props: string[]) {
+    const predicate = (deleted_props: Map<TPropKey, any>) => {
+      for (const prop of props) {
+        if (deleted_props.has(prop)) return true;
+      }
+      return false;
+    };
+    super({
+      deleted: [e => predicate(e[DELETED_PROPS])],
+    });
+  }
+
+  update (): void {
+    for (const e of this.getEntities('deleted')) {
+      for (const prop of this.props) {
+        e[DELETED_PROPS].delete(prop);
+      }
+    }
+  }
+}
+
+function add_cleanup (engine: Engine, Class: typeof System) {
+  try {
+    engine.addSystem(get_singleton(Class));
+  } catch (error) {
+    if (!(error as Error)?.message?.includes('instance already registered')) {
+      throw error;
+    }
+  }
+}
+
+const cache = new Map;
+function get_singleton(Class: typeof System): System {
+  if (!cache.has(Class)) {
+    cache.set(Class, new Class);
+  }
+  return cache.get(Class);
+}
+
+class ReactiveCleanupSystem extends System {
+
+  public priority: number = Infinity;
+
+  constructor() {
+    super({
+      added: [e => !!e[ADDED_PROPS]?.length],
+      changed: [e => !!e[CHANGED_PROPS]?.size],
+    });
+  }
+
+  update(_dt: number): void {
+    const engine = this.getEngine();
+    for (const e of this.getEntities('added')) {
+      e[ADDED_PROPS]?.splice(0, e[ADDED_PROPS]?.length);
+      // this.refreshEntityStatus(e);
+      engine.refreshEntity(e);
+    }
+    for (const e of this.getEntities('changed')) {
+      e[CHANGED_PROPS]?.clear();
+      // this.refreshEntityStatus(e);
+      engine.refreshEntity(e);
+    }
+  }
+
+}
 
